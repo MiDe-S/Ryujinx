@@ -1,15 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Amiibo\Ryujinx\Backup\Ryujinx.Audio.Backends.OpenAL\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="OpenTK.OpenAL" Version="4.5.0" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Ryujinx.Audio\Ryujinx.Audio.csproj" />
   </ItemGroup>
-
 </Project>

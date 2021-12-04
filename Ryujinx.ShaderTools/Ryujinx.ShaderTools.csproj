@@ -1,18 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <RuntimeIdentifiers>win-x64;osx-x64;linux-x64</RuntimeIdentifiers>
     <OutputType>Exe</OutputType>
     <Configurations>Debug;Release</Configurations>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Amiibo\Ryujinx\Backup\Ryujinx.ShaderTools\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Ryujinx.Graphics.Shader\Ryujinx.Graphics.Shader.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
   </ItemGroup>
-
 </Project>

@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Amiibo\Ryujinx\Backup\Ryujinx.Graphics.Vic\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Ryujinx.Common\Ryujinx.Common.csproj" />
     <ProjectReference Include="..\Ryujinx.Graphics.Device\Ryujinx.Graphics.Device.csproj" />
@@ -12,5 +13,4 @@
     <ProjectReference Include="..\Ryujinx.Graphics.Host1x\Ryujinx.Graphics.Host1x.csproj" />
     <ProjectReference Include="..\Ryujinx.Graphics.Texture\Ryujinx.Graphics.Texture.csproj" />
   </ItemGroup>
-
 </Project>
