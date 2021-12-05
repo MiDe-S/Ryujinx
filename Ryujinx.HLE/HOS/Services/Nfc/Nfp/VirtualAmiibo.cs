@@ -193,7 +193,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             return virtualAmiiboFile;
         }
 
-        private static void SaveAmiiboFile(VirtualAmiiboFile virtualAmiiboFile)
+        static void SaveAmiiboFile(VirtualAmiiboFile virtualAmiiboFile)
         {
             string filePath = Path.Join(AppDataManager.BaseDirPath, "system", "amiibo", $"{virtualAmiiboFile.AmiiboId}.json");
 

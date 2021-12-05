@@ -38,6 +38,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using TimeSpanType = Ryujinx.HLE.HOS.Services.Time.Clock.TimeSpanType;
+using Ryujinx.HLE.HOS.Services.Nfc.Nfp;
+using LibAmiibo.Data;
 
 namespace Ryujinx.HLE.HOS
 {
@@ -480,6 +482,19 @@ namespace Ryujinx.HLE.HOS
                 }
             }
             IsPaused = pause;
+        }
+        public static string LoadAmiiboFromBin(string binFilelocation)
+        {
+            string filePath = binFilelocation;
+
+            AmiiboTag bin = AmiiboTag.DecryptWithKeys(File.ReadAllBytes(filePath));
+            byte[] appData = bin.AppData.ToArray();
+
+            VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
+
+            VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
+
+            return bin.Amiibo.StatueId;
         }
     }
 }

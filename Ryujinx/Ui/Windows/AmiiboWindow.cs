@@ -73,6 +73,8 @@ namespace Ryujinx.Ui.Windows
 
         public string AmiiboId { get; private set; }
 
+        public string BinFilelocation { get; private set; }
+
         public int    DeviceId                 { get; set; }
         public string TitleId                  { get; set; }
         public string LastScannedAmiiboId      { get; set; }
@@ -396,6 +398,8 @@ namespace Ryujinx.Ui.Windows
         {
             LastScannedAmiiboShowAll = _showAllCheckBox.Active;
 
+            BinFilelocation = "";
+
             Response = ResponseType.Ok;
 
             Close();
@@ -405,12 +409,34 @@ namespace Ryujinx.Ui.Windows
         {
             AmiiboId                 = "";
             LastScannedAmiiboId      = "";
+            BinFilelocation          = "";
             LastScannedAmiiboShowAll = false;
 
             Response = ResponseType.Cancel;
 
             Close();
         }
+        private void LoadBinButton_Pressed(object sender, EventArgs args)
+        {
+            LastScannedAmiiboShowAll = _showAllCheckBox.Active;
+
+            using (FileChooserNative fileChooser = new FileChooserNative("Choose the folder to open", this, FileChooserAction.Open, "Open", "Cancel"))
+            {
+                if (fileChooser.Run() == (int)ResponseType.Accept)
+                {
+                    BinFilelocation = fileChooser.Filename;
+                }
+            }
+            // only close window if file is chosen
+            //! add checks that file is .bin and an amiibo
+            if (BinFilelocation != "")
+            {
+                Response = ResponseType.Ok;
+
+                Close();
+            }
+        }
+
 
         protected override void Dispose(bool disposing)
         {

@@ -1577,7 +1577,15 @@ namespace Ryujinx.Ui
                 _lastScannedAmiiboId      = ((AmiiboWindow)sender).AmiiboId;
                 _lastScannedAmiiboShowAll = ((AmiiboWindow)sender).LastScannedAmiiboShowAll;
 
-                _emulationContext.System.ScanAmiibo(((AmiiboWindow)sender).DeviceId, ((AmiiboWindow)sender).AmiiboId, ((AmiiboWindow)sender).UseRandomUuid);
+                if (((AmiiboWindow)sender).BinFilelocation != "")
+                {
+                    string binID = Horizon.LoadAmiiboFromBin(((AmiiboWindow)sender).BinFilelocation);
+                    _emulationContext.System.ScanAmiibo(((AmiiboWindow)sender).DeviceId, binID, ((AmiiboWindow)sender).UseRandomUuid);
+                }
+                else
+                {
+                    _emulationContext.System.ScanAmiibo(((AmiiboWindow)sender).DeviceId, ((AmiiboWindow)sender).AmiiboId, ((AmiiboWindow)sender).UseRandomUuid);
+                }
             }
         }
 
