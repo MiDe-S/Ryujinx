@@ -69,7 +69,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Headless.SDL2", "Ry
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Graphics.Nvdec.FFmpeg", "Ryujinx.Graphics.Nvdec.FFmpeg\Ryujinx.Graphics.Nvdec.FFmpeg.csproj", "{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "libamiibo", "..\libamiibo\libamiibo\libamiibo.csproj", "{ADEDADB8-F78E-4B00-9ADE-7AEB3B285823}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "libamiibo", "libamiibo\libamiibo.csproj", "{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -197,10 +197,10 @@ Global
 		{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{ADEDADB8-F78E-4B00-9ADE-7AEB3B285823}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{ADEDADB8-F78E-4B00-9ADE-7AEB3B285823}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{ADEDADB8-F78E-4B00-9ADE-7AEB3B285823}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{ADEDADB8-F78E-4B00-9ADE-7AEB3B285823}.Release|Any CPU.Build.0 = Release|Any CPU
+		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
