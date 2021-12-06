@@ -87,13 +87,24 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             if (amiiboFile.Name == null)
             {
                 amiiboFile.Name = "Ryujinx";
+<<<<<<< Updated upstream
                 Encoding.ASCII.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
+=======
+                Encoding.UTF8.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
+>>>>>>> Stashed changes
                 SaveAmiiboFile(amiiboFile);
             }
             else
             {
+<<<<<<< Updated upstream
                 Encoding.ASCII.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
             }
+=======
+                Encoding.UTF8.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
+
+            }
+
+>>>>>>> Stashed changes
             return registerInfo;
         }
 
@@ -144,6 +155,15 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             SaveAmiiboFile(virtualAmiiboFile);
 
             return true;
+        }
+
+        public static void SetAmiiboName(string amiiboId, string amiiboName)
+        {
+            VirtualAmiiboFile amiiboFile = LoadAmiiboFile(amiiboId);
+
+            amiiboFile.Name = amiiboName;
+
+            SaveAmiiboFile(amiiboFile);
         }
 
         public static void SetApplicationArea(string amiiboId, byte[] applicationAreaData)
@@ -208,5 +228,49 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             File.WriteAllText(filePath, JsonSerializer.Serialize(virtualAmiiboFile));
         }
+<<<<<<< Updated upstream
+=======
+
+        static public VirtualAmiiboFile CreateAmiiboJSON(string amiiboId, uint FileVersion=0, string amiiboName=null, byte[] TagUuid=null, DateTime? FirstWriteDate=null, ushort WriteCounter=0, uint ApplicationAreaID=0, byte[] ApplicationArea =null)
+        {
+            if (FirstWriteDate == null)
+            {
+                FirstWriteDate = DateTime.Now;
+            }
+            if (TagUuid == null)
+            {
+                TagUuid = Array.Empty<byte>();
+            }
+            if (amiiboName == null)
+            {
+                amiiboName = "Ryujinx";
+            }
+            VirtualAmiiboFile virtualAmiiboFile = new VirtualAmiiboFile()
+            {
+                FileVersion      = FileVersion,
+                Name             = amiiboName,
+                TagUuid          = TagUuid,
+                AmiiboId         = amiiboId,
+                FirstWriteDate   = (DateTime)FirstWriteDate,
+                LastWriteDate    = DateTime.Now,
+                WriteCounter     = WriteCounter,
+                ApplicationAreas = new List<VirtualAmiiboApplicationArea>()
+            };
+
+            if (ApplicationArea != null)
+            {
+                VirtualAmiiboApplicationArea appdata = new VirtualAmiiboApplicationArea()
+                {
+                    ApplicationAreaId = ApplicationAreaID,
+                    ApplicationArea = ApplicationArea
+                };
+                virtualAmiiboFile.ApplicationAreas.Add(appdata);
+            }
+
+            SaveAmiiboFile(virtualAmiiboFile);
+
+            return virtualAmiiboFile;
+        }
+>>>>>>> Stashed changes
     }
 }
