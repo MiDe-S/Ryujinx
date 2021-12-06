@@ -484,6 +484,7 @@ namespace Ryujinx.HLE.HOS
             }
             IsPaused = pause;
         }
+
         public static string LoadAmiiboFromBin(string binFilelocation, bool randomizeUID)
         {
 
@@ -500,11 +501,15 @@ namespace Ryujinx.HLE.HOS
 
                 VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
 
+
+                VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
+
                 VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
             }
             else
             {
-                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.UID, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
+                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.UID, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
+
                 VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
             }
 
