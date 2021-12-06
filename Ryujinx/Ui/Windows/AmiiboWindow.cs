@@ -429,7 +429,7 @@ namespace Ryujinx.Ui.Windows
             }
             // only close window if file is chosen
             //! add checks that file is .bin and an amiibo
-            if (BinFilelocation != "")
+            if (BinFilelocation != null)
             {
                 Response = ResponseType.Ok;
 

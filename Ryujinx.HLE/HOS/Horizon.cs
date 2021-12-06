@@ -501,7 +501,6 @@ namespace Ryujinx.HLE.HOS
 
                 VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
 
-
                 VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
 
                 VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);

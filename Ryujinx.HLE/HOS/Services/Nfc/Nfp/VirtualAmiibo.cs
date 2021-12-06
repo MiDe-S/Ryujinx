@@ -208,7 +208,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             File.WriteAllText(filePath, JsonSerializer.Serialize(virtualAmiiboFile));
         }
 
-        static public VirtualAmiiboFile CreateAmiiboJSON(string amiiboId, uint FileVersion=0, string amiiboName=null, byte[] TagUuid=null, DateTime? FirstWriteDate=null, ushort WriteCounter=0, uint ApplicationAreaID=0, byte[] ApplicationArea =null)
+        static public VirtualAmiiboFile CreateAmiiboJSON(string amiiboId, uint FileVersion=0, string amiiboName="Ryujinx", byte[] TagUuid=null, DateTime? FirstWriteDate=null, ushort WriteCounter=0, uint ApplicationAreaID=0, byte[] ApplicationArea =null)
         {
             if (FirstWriteDate == null)
             {
@@ -217,10 +217,6 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             if (TagUuid == null)
             {
                 TagUuid = Array.Empty<byte>();
-            }
-            if (amiiboName == null)
-            {
-                amiiboName = "Ryujinx";
             }
             VirtualAmiiboFile virtualAmiiboFile = new VirtualAmiiboFile()
             {
