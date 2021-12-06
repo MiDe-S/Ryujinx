@@ -176,18 +176,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             }
             else
             {
-                virtualAmiiboFile = new VirtualAmiiboFile()
-                {
-                    FileVersion      = 0,
-                    TagUuid          = Array.Empty<byte>(),
-                    AmiiboId         = amiiboId,
-                    FirstWriteDate   = DateTime.Now,
-                    LastWriteDate    = DateTime.Now,
-                    WriteCounter     = 0,
-                    ApplicationAreas = new List<VirtualAmiiboApplicationArea>()
-                };
-
-                SaveAmiiboFile(virtualAmiiboFile);
+                virtualAmiiboFile = CreateAmiiboJSON(amiiboId);
             }
 
             return virtualAmiiboFile;
@@ -198,6 +187,43 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             string filePath = Path.Join(AppDataManager.BaseDirPath, "system", "amiibo", $"{virtualAmiiboFile.AmiiboId}.json");
 
             File.WriteAllText(filePath, JsonSerializer.Serialize(virtualAmiiboFile));
+        }
+
+        static public VirtualAmiiboFile CreateAmiiboJSON(string amiiboId, uint FileVersion=0, byte[] TagUuid=null, DateTime? FirstWriteDate=null, ushort WriteCounter=0, uint ApplicationAreaID=0, byte[] ApplicationArea =null)
+        {
+            if (FirstWriteDate == null)
+            {
+                FirstWriteDate = DateTime.Now;
+            }
+            if (TagUuid == null)
+            {
+                TagUuid = Array.Empty<byte>();
+            }
+
+            VirtualAmiiboFile virtualAmiiboFile = new VirtualAmiiboFile()
+            {
+                FileVersion = FileVersion,
+                TagUuid = TagUuid,
+                AmiiboId = amiiboId,
+                FirstWriteDate = (DateTime)FirstWriteDate,
+                LastWriteDate = DateTime.Now,
+                WriteCounter = WriteCounter,
+                ApplicationAreas = new List<VirtualAmiiboApplicationArea>()
+            };
+
+            if (ApplicationArea != null)
+            {
+                VirtualAmiiboApplicationArea appdata = new VirtualAmiiboApplicationArea()
+                {
+                    ApplicationAreaId = ApplicationAreaID,
+                    ApplicationArea = ApplicationArea
+                };
+                virtualAmiiboFile.ApplicationAreas.Add(appdata);
+            }
+
+            SaveAmiiboFile(virtualAmiiboFile);
+
+            return virtualAmiiboFile;
         }
     }
 }

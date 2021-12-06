@@ -1579,7 +1579,7 @@ namespace Ryujinx.Ui
 
                 if (((AmiiboWindow)sender).BinFilelocation != "")
                 {
-                    string binID = Horizon.LoadAmiiboFromBin(((AmiiboWindow)sender).BinFilelocation);
+                    string binID = Horizon.LoadAmiiboFromBin(((AmiiboWindow)sender).BinFilelocation, ((AmiiboWindow)sender).UseRandomUuid);
                     _emulationContext.System.ScanAmiibo(((AmiiboWindow)sender).DeviceId, binID, ((AmiiboWindow)sender).UseRandomUuid);
                 }
                 else
