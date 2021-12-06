@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Amiibo\Ryujinx\Backup\Ryujinx.Graphics.Video\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Ryujinx.Common\Ryujinx.Common.csproj" />
   </ItemGroup>
-
 </Project>

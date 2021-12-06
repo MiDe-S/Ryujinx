@@ -1,14 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Amiibo\Ryujinx\Backup\Ryujinx.Audio.Backends.SoundIo\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Ryujinx.Audio\Ryujinx.Audio.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <ContentWithTargetPath Include="Native\libsoundio\libs\libsoundio.dll" Condition="'$(RuntimeIdentifier)' != 'linux-x64' AND '$(RuntimeIdentifier)' != 'osx-x64'">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -23,5 +23,4 @@
       <TargetPath>libsoundio.so</TargetPath>
     </ContentWithTargetPath>
   </ItemGroup>
-
 </Project>

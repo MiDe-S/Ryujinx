@@ -1,14 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <FileUpgradeFlags>40</FileUpgradeFlags>
+    <UpgradeBackupLocation>D:\Amiibo\Ryujinx\Backup\Ryujinx.Audio\</UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
   </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Ryujinx.Common\Ryujinx.Common.csproj" />
     <ProjectReference Include="..\Ryujinx.Cpu\Ryujinx.Cpu.csproj" />
     <ProjectReference Include="..\Ryujinx.Memory\Ryujinx.Memory.csproj" />
   </ItemGroup>
-
 </Project>

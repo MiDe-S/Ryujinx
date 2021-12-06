@@ -21,6 +21,9 @@ namespace Ryujinx.Ui.Windows
         private Image        _amiiboImage;
         private Label        _gameUsageLabel;
 
+        private ButtonBox _binBox;
+        private Button _loadBinButton;
+
         private void InitializeComponent()
         {
 #pragma warning disable CS0612
@@ -158,6 +161,28 @@ namespace Ryujinx.Ui.Windows
                 MarginTop = 20
             };
 
+            //
+            // _binBox
+            //
+            _binBox = new ButtonBox(Orientation.Horizontal)
+            {
+                Margin = 10,
+                LayoutStyle = ButtonBoxStyle.Center
+            };
+
+            //
+            // _loadBinButton
+            //
+            _loadBinButton = new Button()
+            {
+                Label = "Load amiibo bin",
+                CanFocus = true,
+                ReceivesDefault = true,
+                MarginLeft = 10
+            };
+            _loadBinButton.Clicked += LoadBinButton_Pressed;
+
+
 #pragma warning restore CS0612
 
             ShowComponent();
@@ -165,6 +190,8 @@ namespace Ryujinx.Ui.Windows
 
         private void ShowComponent()
         {
+            _binBox.Add(_loadBinButton);
+
             _buttonBox.Add(_showAllCheckBox);
             _buttonBox.Add(_randomUuidCheckBox);
             _buttonBox.Add(_scanButton);
@@ -184,6 +211,7 @@ namespace Ryujinx.Ui.Windows
             _amiiboBox.PackEnd(_amiiboImage, false, false, 0);
 
             _mainBox.Add(_amiiboBox);
+            _mainBox.PackEnd(_binBox, false, false, 0);
             _mainBox.PackEnd(_buttonBox, false, false, 0);
 
             Add(_mainBox);

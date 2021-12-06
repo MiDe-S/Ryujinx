@@ -8,6 +8,7 @@ using Ryujinx.Audio.Integration;
 using Ryujinx.Audio.Output;
 using Ryujinx.Audio.Renderer.Device;
 using Ryujinx.Audio.Renderer.Server;
+using Ryujinx.Common.Configuration;
 using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS.Kernel;
 using Ryujinx.HLE.HOS.Kernel.Memory;
@@ -38,6 +39,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using TimeSpanType = Ryujinx.HLE.HOS.Services.Time.Clock.TimeSpanType;
+using Ryujinx.HLE.HOS.Services.Nfc.Nfp;
+using LibAmiibo.Data;
 
 namespace Ryujinx.HLE.HOS
 {
@@ -481,8 +484,7 @@ namespace Ryujinx.HLE.HOS
             }
             IsPaused = pause;
         }
-<<<<<<< Updated upstream
-=======
+
         public static string LoadAmiiboFromBin(string binFilelocation, bool randomizeUID)
         {
 
@@ -499,6 +501,7 @@ namespace Ryujinx.HLE.HOS
 
                 VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
 
+
                 VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
 
                 VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
@@ -506,11 +509,11 @@ namespace Ryujinx.HLE.HOS
             else
             {
                 VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.UID, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
+
                 VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
             }
 
             return bin.Amiibo.StatueId;
         }
->>>>>>> Stashed changes
     }
 }

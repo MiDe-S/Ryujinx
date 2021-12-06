@@ -87,24 +87,15 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             if (amiiboFile.Name == null)
             {
                 amiiboFile.Name = "Ryujinx";
-<<<<<<< Updated upstream
-                Encoding.ASCII.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
-=======
                 Encoding.UTF8.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
->>>>>>> Stashed changes
                 SaveAmiiboFile(amiiboFile);
             }
             else
             {
-<<<<<<< Updated upstream
-                Encoding.ASCII.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
-            }
-=======
+
                 Encoding.UTF8.GetBytes(amiiboFile.Name, registerInfo.Nickname.ToSpan());
-
             }
 
->>>>>>> Stashed changes
             return registerInfo;
         }
 
@@ -204,32 +195,18 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             }
             else
             {
-                virtualAmiiboFile = new VirtualAmiiboFile()
-                {
-                    FileVersion      = 0,
-                    Name             = "Ryujinx",
-                    TagUuid          = Array.Empty<byte>(),
-                    AmiiboId         = amiiboId,
-                    FirstWriteDate   = DateTime.Now,
-                    LastWriteDate    = DateTime.Now,
-                    WriteCounter     = 0,
-                    ApplicationAreas = new List<VirtualAmiiboApplicationArea>()
-                };
-
-                SaveAmiiboFile(virtualAmiiboFile);
+                virtualAmiiboFile = CreateAmiiboJSON(amiiboId);
             }
 
             return virtualAmiiboFile;
         }
 
-        private static void SaveAmiiboFile(VirtualAmiiboFile virtualAmiiboFile)
+        static void SaveAmiiboFile(VirtualAmiiboFile virtualAmiiboFile)
         {
             string filePath = Path.Join(AppDataManager.BaseDirPath, "system", "amiibo", $"{virtualAmiiboFile.AmiiboId}.json");
 
             File.WriteAllText(filePath, JsonSerializer.Serialize(virtualAmiiboFile));
         }
-<<<<<<< Updated upstream
-=======
 
         static public VirtualAmiiboFile CreateAmiiboJSON(string amiiboId, uint FileVersion=0, string amiiboName=null, byte[] TagUuid=null, DateTime? FirstWriteDate=null, ushort WriteCounter=0, uint ApplicationAreaID=0, byte[] ApplicationArea =null)
         {
@@ -271,6 +248,6 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             return virtualAmiiboFile;
         }
->>>>>>> Stashed changes
+
     }
 }
