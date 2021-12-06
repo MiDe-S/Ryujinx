@@ -8,7 +8,6 @@ using Ryujinx.Audio.Integration;
 using Ryujinx.Audio.Output;
 using Ryujinx.Audio.Renderer.Device;
 using Ryujinx.Audio.Renderer.Server;
-using Ryujinx.Common.Configuration;
 using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS.Kernel;
 using Ryujinx.HLE.HOS.Kernel.Memory;
@@ -40,7 +39,6 @@ using System.Linq;
 using System.Threading;
 using TimeSpanType = Ryujinx.HLE.HOS.Services.Time.Clock.TimeSpanType;
 using Ryujinx.HLE.HOS.Services.Nfc.Nfp;
-using LibAmiibo.Data;
 
 namespace Ryujinx.HLE.HOS
 {
@@ -487,32 +485,7 @@ namespace Ryujinx.HLE.HOS
 
         public static string LoadAmiiboFromBin(string binFilelocation, bool randomizeUID)
         {
-
-            AmiiboTag bin = AmiiboTag.DecryptWithKeys(File.ReadAllBytes(binFilelocation));
-            byte[] appData = bin.AppData.ToArray();
-
-            Directory.CreateDirectory(Path.Join(AppDataManager.BaseDirPath, "system", "amiibo"));
-
-            string filePath = Path.Join(AppDataManager.BaseDirPath, "system", "amiibo", $"{bin.Amiibo.StatueId}.json");
-
-            if (File.Exists(filePath))
-            {
-                VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
-
-                VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
-
-                VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
-
-                VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
-            }
-            else
-            {
-                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.UID, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
-
-                VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
-            }
-
-            return bin.Amiibo.StatueId;
+            return VirtualAmiibo.LoadAmiiboFromBin(binFilelocation, randomizeUID);
         }
     }
 }

@@ -7,8 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using LibAmiibo.Data;
 
 namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 {
@@ -243,6 +245,61 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             SaveAmiiboFile(virtualAmiiboFile);
 
             return virtualAmiiboFile;
+        }
+
+        public static string LoadAmiiboFromBin(string binFilelocation, bool randomizeUID)
+        {
+            
+            if (!ValidateAmiiboKey())
+            {
+                return null;
+            }
+
+            AmiiboTag bin = AmiiboTag.DecryptWithKeys(File.ReadAllBytes(binFilelocation));
+
+            byte[] appData = bin.AppData.ToArray();
+
+            Directory.CreateDirectory(Path.Join(AppDataManager.BaseDirPath, "system", "amiibo"));
+
+            string filePath = Path.Join(AppDataManager.BaseDirPath, "system", "amiibo", $"{bin.Amiibo.StatueId}.json");
+
+            if (File.Exists(filePath))
+            {
+                VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
+
+                VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
+
+                VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
+
+                VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
+            }
+            else
+            {
+                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.UID, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
+
+                VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
+            }
+
+            return bin.Amiibo.StatueId;
+        }
+
+        static bool ValidateAmiiboKey()
+        {
+            string settingsPath = Path.Join(Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().Location).LocalPath), "appsettings.json");
+
+            Dictionary<string, string> keyDict = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(settingsPath), new JsonSerializerOptions(JsonSerializerDefaults.General));
+
+            if (File.Exists(keyDict["AmiiboKeys"]))
+            {
+                return true;
+            }
+            else if (File.Exists(Path.Join(AppDataManager.BaseDirPath, "system", "key_retail.bin")))
+            {
+                keyDict["AmiiboKeys"] = Path.Join(AppDataManager.BaseDirPath, "system", "key_retail.bin");
+                File.WriteAllText(settingsPath, JsonSerializer.Serialize(keyDict));
+                return true;
+            }
+            return false;
         }
 
     }
