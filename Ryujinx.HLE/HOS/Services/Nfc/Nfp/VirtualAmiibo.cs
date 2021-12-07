@@ -265,19 +265,24 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             if (File.Exists(filePath))
             {
-                VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
-
-                VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
-
-                VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
-
-                VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
+                // needed to prevent different console error
+                if (!VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID).SequenceEqual(bin.NtagSerial.ToArray()))
+                {
+                    VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
+                    VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
+                    VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
+                }
+                //VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
             }
             else
             {
-                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.UID, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
+                byte[] uid = bin.NtagSerial.ToArray();
+                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, uid, bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, 888668672, appData);
 
-                VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
+                if (randomizeUID)
+                {
+                    VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
+                }
             }
 
             return bin.Amiibo.StatueId;
