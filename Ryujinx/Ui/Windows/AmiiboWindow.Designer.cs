@@ -166,7 +166,6 @@ namespace Ryujinx.Ui.Windows
             //
             _binBox = new ButtonBox(Orientation.Horizontal)
             {
-                Margin = 10,
                 LayoutStyle = ButtonBoxStyle.Center
             };
 
@@ -175,10 +174,10 @@ namespace Ryujinx.Ui.Windows
             //
             _loadBinButton = new Button()
             {
-                Label = "Load amiibo bin",
+                Label = "Import amiibo .bin",
                 CanFocus = true,
                 ReceivesDefault = true,
-                MarginLeft = 10
+                MarginBottom = 20
             };
             _loadBinButton.Clicked += LoadBinButton_Pressed;
 

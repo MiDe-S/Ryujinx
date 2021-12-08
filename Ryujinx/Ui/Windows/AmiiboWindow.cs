@@ -420,13 +420,27 @@ namespace Ryujinx.Ui.Windows
         {
             LastScannedAmiiboShowAll = _showAllCheckBox.Active;
 
-            using (FileChooserNative fileChooser = new FileChooserNative("Choose the folder to open", this, FileChooserAction.Open, "Open", "Cancel"))
+            MessageDialog overwriteWarningDialog = new MessageDialog(this, DialogFlags.Modal, MessageType.Warning, ButtonsType.YesNo, null)
             {
-                if (fileChooser.Run() == (int)ResponseType.Accept)
+                Title = "Ryujinx - Warning",
+                Text = "This will overwrite the current version of this amiibo saved by Ryujinx",
+                SecondaryText = "To back up the current version, go to File > Open Ryujinx Folder > System > Amiibo and copy the wanted .json file elsewhere. Continue?"
+            };
+
+            if (overwriteWarningDialog.Run() == (int)ResponseType.Yes)
+            {
+                using (FileChooserNative fileChooser = new FileChooserNative("Choose the folder to open", this, FileChooserAction.Open, "Open", "Cancel"))
                 {
-                    BinFilelocation = fileChooser.Filename;
+                    if (fileChooser.Run() == (int)ResponseType.Accept)
+                    {
+                        BinFilelocation = fileChooser.Filename;
+                    }
                 }
             }
+
+            overwriteWarningDialog.Dispose();
+
+
             // only close window if file is chosen
             //! add checks that file is .bin and an amiibo
             if (BinFilelocation != null)
