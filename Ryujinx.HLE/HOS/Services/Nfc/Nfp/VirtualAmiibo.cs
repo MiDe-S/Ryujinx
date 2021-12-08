@@ -169,17 +169,21 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
                 {
                     if (virtualAmiiboFile.ApplicationAreas[i].ApplicationAreaId == _openedApplicationAreaId)
                     {
-                        virtualAmiiboFile.ApplicationAreas[i] = new VirtualAmiiboApplicationArea()
+                        // only write to file if appdata has changed
+                        if (!virtualAmiiboFile.ApplicationAreas[i].ApplicationArea.SequenceEqual(applicationAreaData))
                         {
-                            ApplicationAreaId = _openedApplicationAreaId,
-                            ApplicationArea   = applicationAreaData
-                        };
+                            virtualAmiiboFile.ApplicationAreas[i] = new VirtualAmiiboApplicationArea()
+                            {
+                                ApplicationAreaId = _openedApplicationAreaId,
+                                ApplicationArea = applicationAreaData
+                            };
+
+                            SaveAmiiboFile(virtualAmiiboFile);
+                        }
 
                         break;
                     }
                 }
-
-                SaveAmiiboFile(virtualAmiiboFile);
             }
         }
 
@@ -265,14 +269,13 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             if (File.Exists(filePath))
             {
+                VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
                 // needed to prevent different console error
                 if (!VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID).SequenceEqual(bin.NtagSerial.ToArray()))
                 {
-                    VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, 888668672);
                     VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
                     VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
                 }
-                //VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID);
             }
             else
             {
