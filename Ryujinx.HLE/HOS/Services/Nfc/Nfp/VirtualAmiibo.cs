@@ -269,7 +269,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             if (File.Exists(filePath))
             {
-                VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, (uint)bin.Amiibo.GameSeriesId);
+                VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboAppData.AppID);
                 // needed to prevent different console error
                 if (!VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID).SequenceEqual(bin.NtagSerial.ToArray()))
                 {
@@ -281,7 +281,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             {
                 // scanning an unregistered amiibo means json data is a random mess, it still works in games though. Also creates an unuseable app id
                 // unsure how to detect if bin is registered or not
-                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.NtagSerial.ToArray(), bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, (uint)bin.Amiibo.GameSeriesId, appData);
+                VirtualAmiibo.CreateAmiiboJSON(bin.Amiibo.StatueId, 0, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname, bin.NtagSerial.ToArray(), bin.AmiiboSettings.AmiiboUserData.AmiiboSetupDate, bin.AmiiboSettings.WriteCounter, bin.AmiiboSettings.AmiiboAppData.AppID, appData);
 
                 if (randomizeUID)
                 {
