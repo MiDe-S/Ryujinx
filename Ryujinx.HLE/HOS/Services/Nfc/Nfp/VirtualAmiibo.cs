@@ -229,7 +229,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
                 FileVersion      = FileVersion,
                 Name             = amiiboName,
                 TagUuid          = TagUuid,
-                AmiiboId         = amiiboId,
+                AmiiboId         = amiiboId.ToLower(),
                 FirstWriteDate   = (DateTime)FirstWriteDate,
                 LastWriteDate    = DateTime.Now,
                 WriteCounter     = WriteCounter,
@@ -270,12 +270,8 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             if (File.Exists(filePath))
             {
                 VirtualAmiibo.OpenApplicationArea(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboAppData.AppID);
-                // needed to prevent different console error
-                if (!VirtualAmiibo.GenerateUuid(bin.Amiibo.StatueId, randomizeUID).SequenceEqual(bin.NtagSerial.ToArray()))
-                {
-                    VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
-                    VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
-                }
+                VirtualAmiibo.SetApplicationArea(bin.Amiibo.StatueId, appData);
+                VirtualAmiibo.SetAmiiboName(bin.Amiibo.StatueId, bin.AmiiboSettings.AmiiboUserData.AmiiboNickname);
             }
             else
             {

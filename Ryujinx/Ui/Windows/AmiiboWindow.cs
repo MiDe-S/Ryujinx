@@ -427,19 +427,39 @@ namespace Ryujinx.Ui.Windows
                 SecondaryText = "To back up the current version, go to File > Open Ryujinx Folder > System > Amiibo and copy the wanted .json file elsewhere. Continue?"
             };
 
-            if (overwriteWarningDialog.Run() == (int)ResponseType.Yes)
+
+            using (FileChooserNative fileChooser = new FileChooserNative("Choose the folder to open", this, FileChooserAction.Open, "Open", "Cancel"))
             {
-                using (FileChooserNative fileChooser = new FileChooserNative("Choose the folder to open", this, FileChooserAction.Open, "Open", "Cancel"))
+                if (fileChooser.Run() == (int)ResponseType.Accept)
                 {
-                    if (fileChooser.Run() == (int)ResponseType.Accept)
+                    var bin = File.ReadAllBytes(fileChooser.Filename);
+                    // clear string, then make new one using ID of given bin
+                    string binId = "";
+                    for (int i=84; i < 92; i++)
+                    {
+                        // D2 gives padded zero in front
+                        binId += bin[i].ToString("X2").ToLower();
+                    }
+                    Directory.CreateDirectory(System.IO.Path.Join(AppDataManager.BaseDirPath, "system", "amiibo"));
+
+                    string filePath = System.IO.Path.Join(AppDataManager.BaseDirPath, "system", "amiibo", $"{binId}.json");
+                    // If importing bin overwrites previous amiibo, throw up a warning message
+                    if (File.Exists(filePath))
+                    {
+                        if (overwriteWarningDialog.Run() == (int)ResponseType.Yes)
+                        {
+                            BinFilelocation = fileChooser.Filename;
+                            AmiiboId = binId;
+                        }
+                        overwriteWarningDialog.Dispose();
+                    }
+                    else
                     {
                         BinFilelocation = fileChooser.Filename;
+                        AmiiboId = binId;
                     }
                 }
             }
-
-            overwriteWarningDialog.Dispose();
-
 
             // only close window if file is chosen
             //! add checks that file is .bin and an amiibo
