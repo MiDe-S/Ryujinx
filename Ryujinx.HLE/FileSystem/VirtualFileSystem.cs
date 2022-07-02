@@ -8,43 +8,54 @@ using LibHac.FsSrv;
 using LibHac.FsSystem;
 using LibHac.Ncm;
 using LibHac.Spl;
+using LibHac.Tools.Es;
+using LibHac.Tools.Fs;
+using LibHac.Tools.FsSystem;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
-using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS;
 using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
+
+using Path = System.IO.Path;
 using RightsId = LibHac.Fs.RightsId;
 
 namespace Ryujinx.HLE.FileSystem
 {
     public class VirtualFileSystem : IDisposable
     {
-        public const string NandPath = AppDataManager.DefaultNandDir;
-        public const string SdCardPath = AppDataManager.DefaultSdcardDir;
+        public static string SafeNandPath   = Path.Combine(AppDataManager.DefaultNandDir, "safe");
+        public static string SystemNandPath = Path.Combine(AppDataManager.DefaultNandDir, "system");
+        public static string UserNandPath   = Path.Combine(AppDataManager.DefaultNandDir, "user");
 
-        public static string SafeNandPath = Path.Combine(NandPath, "safe");
-        public static string SystemNandPath = Path.Combine(NandPath, "system");
-        public static string UserNandPath = Path.Combine(NandPath, "user");
+        public KeySet           KeySet    { get; private set; }
+        public EmulatedGameCard GameCard  { get; private set; }
+        public EmulatedSdCard   SdCard    { get; private set; }
+        public ModLoader        ModLoader { get; private set; }
+        public Stream           RomFs     { get; private set; }
 
         private static bool _isInitialized = false;
 
-        public KeySet KeySet { get; private set; }
-        public EmulatedGameCard GameCard { get; private set; }
-        public EmulatedSdCard SdCard { get; private set; }
+        public static VirtualFileSystem CreateInstance()
+        {
+            if (_isInitialized)
+            {
+                throw new InvalidOperationException("VirtualFileSystem can only be instantiated once!");
+            }
 
-        public ModLoader ModLoader { get; private set; }
+            _isInitialized = true;
+
+            return new VirtualFileSystem();
+        }
 
         private VirtualFileSystem()
         {
             ReloadKeySet();
             ModLoader = new ModLoader(); // Should only be created once
         }
-
-        public Stream RomFs { get; private set; }
 
         public void LoadRomFs(string fileName)
         {
@@ -74,7 +85,7 @@ namespace Ryujinx.HLE.FileSystem
 
             string fullPath = Path.GetFullPath(Path.Combine(basePath, fileName));
 
-            if (!fullPath.StartsWith(GetBasePath()))
+            if (!fullPath.StartsWith(AppDataManager.BaseDirPath))
             {
                 return null;
             }
@@ -82,14 +93,8 @@ namespace Ryujinx.HLE.FileSystem
             return fullPath;
         }
 
-        internal string GetBasePath() => AppDataManager.BaseDirPath;
-        internal string GetSdCardPath() => MakeFullPath(SdCardPath);
-        public string GetNandPath() => MakeFullPath(NandPath);
-
-        public string GetFullPartitionPath(string partitionPath)
-        {
-            return MakeFullPath(partitionPath);
-        }
+        internal string GetSdCardPath() => MakeFullPath(AppDataManager.DefaultSdcardDir);
+        public string GetNandPath() => MakeFullPath(AppDataManager.DefaultNandDir);
 
         public string SwitchPathToSystemPath(string switchPath)
         {
@@ -105,7 +110,7 @@ namespace Ryujinx.HLE.FileSystem
 
         public string SystemPathToSwitchPath(string systemPath)
         {
-            string baseSystemPath = GetBasePath() + Path.DirectorySeparatorChar;
+            string baseSystemPath = AppDataManager.BaseDirPath + Path.DirectorySeparatorChar;
 
             if (systemPath.StartsWith(baseSystemPath))
             {
@@ -131,8 +136,7 @@ namespace Ryujinx.HLE.FileSystem
             switch (path)
             {
                 case ContentPath.SdCard:
-                case "@Sdcard":
-                    path = SdCardPath;
+                    path = AppDataManager.DefaultSdcardDir;
                     break;
                 case ContentPath.User:
                     path = UserNandPath;
@@ -141,7 +145,7 @@ namespace Ryujinx.HLE.FileSystem
                     path = SystemNandPath;
                     break;
                 case ContentPath.SdCardContent:
-                    path = Path.Combine(SdCardPath, "Nintendo", "Contents");
+                    path = Path.Combine(AppDataManager.DefaultSdcardDir, "Nintendo", "Contents");
                     break;
                 case ContentPath.UserContent:
                     path = Path.Combine(UserNandPath, "Contents");
@@ -151,27 +155,19 @@ namespace Ryujinx.HLE.FileSystem
                     break;
             }
 
-            string fullPath = Path.Combine(GetBasePath(), path);
+            string fullPath = Path.Combine(AppDataManager.BaseDirPath, path);
 
-            if (isDirectory)
+            if (isDirectory && !Directory.Exists(fullPath))
             {
-                if (!Directory.Exists(fullPath))
-                {
-                    Directory.CreateDirectory(fullPath);
-                }
+                Directory.CreateDirectory(fullPath);
             }
 
             return fullPath;
         }
 
-        public DriveInfo GetDrive()
-        {
-            return new DriveInfo(Path.GetPathRoot(GetBasePath()));
-        }
-
         public void InitializeFsServer(LibHac.Horizon horizon, out HorizonClient fsServerClient)
         {
-            LocalFileSystem serverBaseFs = new LocalFileSystem(GetBasePath());
+            LocalFileSystem serverBaseFs = new LocalFileSystem(AppDataManager.BaseDirPath);
 
             fsServerClient = horizon.CreatePrivilegedHorizonClient();
             var fsServer = new FileSystemServer(fsServerClient);
@@ -240,11 +236,13 @@ namespace Ryujinx.HLE.FileSystem
         {
             foreach (DirectoryEntryEx ticketEntry in fs.EnumerateEntries("/", "*.tik"))
             {
-                Result result = fs.OpenFile(out IFile ticketFile, ticketEntry.FullPath.ToU8Span(), OpenMode.Read);
+                using var ticketFile = new UniqueRef<IFile>();
+
+                Result result = fs.OpenFile(ref ticketFile.Ref(), ticketEntry.FullPath.ToU8Span(), OpenMode.Read);
 
                 if (result.IsSuccess())
                 {
-                    Ticket ticket = new Ticket(ticketFile.AsStream());
+                    Ticket ticket = new Ticket(ticketFile.Get.AsStream());
 
                     if (ticket.TitleKeyType == TitleKeyType.Common)
                     {
@@ -280,12 +278,14 @@ namespace Ryujinx.HLE.FileSystem
         {
             Span<SaveDataInfo> info = stackalloc SaveDataInfo[8];
 
-            Result rc = hos.Fs.OpenSaveDataIterator(out var iterator, spaceId);
+            using var iterator = new UniqueRef<SaveDataIterator>();
+
+            Result rc = hos.Fs.OpenSaveDataIterator(ref iterator.Ref(), spaceId);
             if (rc.IsFailure()) return rc;
 
             while (true)
             {
-                rc = iterator.ReadSaveDataInfo(out long count, info);
+                rc = iterator.Get.ReadSaveDataInfo(out long count, info);
                 if (rc.IsFailure()) return rc;
 
                 if (count == 0)
@@ -496,7 +496,9 @@ namespace Ryujinx.HLE.FileSystem
 
             bool canFixBySaveDataId = extraData.Attribute.StaticSaveDataId == 0 && info.StaticSaveDataId != 0;
 
-            if (!canFixByProgramId && !canFixBySaveDataId)
+            bool hasEmptyOwnerId = extraData.OwnerId == 0 && info.Type != SaveDataType.System;
+
+            if (!canFixByProgramId && !canFixBySaveDataId && !hasEmptyOwnerId)
             {
                 wasFixNeeded = false;
                 return Result.Success;
@@ -512,7 +514,7 @@ namespace Ryujinx.HLE.FileSystem
 
             // The rest of the extra data can't be created from the save data info.
             // On user saves the owner ID will almost certainly be the same as the program ID.
-            if (info.Type != LibHac.Fs.SaveDataType.System)
+            if (info.Type != SaveDataType.System)
             {
                 extraData.OwnerId = info.ProgramId.Value;
             }
@@ -569,11 +571,6 @@ namespace Ryujinx.HLE.FileSystem
             }
         };
 
-        public void Unload()
-        {
-            RomFs?.Dispose();
-        }
-
         public void Dispose()
         {
             Dispose(true);
@@ -583,20 +580,8 @@ namespace Ryujinx.HLE.FileSystem
         {
             if (disposing)
             {
-                Unload();
+                RomFs?.Dispose();
             }
-        }
-
-        public static VirtualFileSystem CreateInstance()
-        {
-            if (_isInitialized)
-            {
-                throw new InvalidOperationException("VirtualFileSystem can only be instantiated once!");
-            }
-
-            _isInitialized = true;
-
-            return new VirtualFileSystem();
         }
     }
 }

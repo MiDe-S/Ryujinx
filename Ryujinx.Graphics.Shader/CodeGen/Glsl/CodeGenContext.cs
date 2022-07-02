@@ -70,6 +70,25 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             AppendLine("}" + suffix);
         }
 
+        public (TextureDescriptor, int) FindTextureDescriptor(AstTextureOperation texOp)
+        {
+            TextureDescriptor[] descriptors = Config.GetTextureDescriptors();
+
+            for (int i = 0; i < descriptors.Length; i++)
+            {
+                var descriptor = descriptors[i];
+
+                if (descriptor.CbufSlot == texOp.CbufSlot &&
+                    descriptor.HandleIndex == texOp.Handle &&
+                    descriptor.Format == texOp.Format)
+                {
+                    return (descriptor, i);
+                }
+            }
+
+            return (default, -1);
+        }
+
         private static int FindDescriptorIndex(TextureDescriptor[] array, AstTextureOperation texOp)
         {
             for (int i = 0; i < array.Length; i++)
@@ -101,6 +120,18 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
         public StructuredFunction GetFunction(int id)
         {
             return _info.Functions[id];
+        }
+
+        public TransformFeedbackOutput GetTransformFeedbackOutput(int location, int component)
+        {
+            int index = (AttributeConsts.UserAttributeBase / 4) + location * 4 + component;
+            return _info.TransformFeedbackOutputs[index];
+        }
+
+        public TransformFeedbackOutput GetTransformFeedbackOutput(int location)
+        {
+            int index = location / 4;
+            return _info.TransformFeedbackOutputs[index];
         }
 
         private void UpdateIndentation()

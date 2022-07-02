@@ -16,6 +16,11 @@ namespace ARMeilleure.Instructions
             EmitClearExclusive(context);
         }
 
+        public static void Csdb(ArmEmitterContext context)
+        {
+            // Execute as no-op.
+        }
+
         public static void Dmb(ArmEmitterContext context) => EmitBarrier(context);
 
         public static void Dsb(ArmEmitterContext context) => EmitBarrier(context);
@@ -141,13 +146,13 @@ namespace ARMeilleure.Instructions
             var exclusive = (accType & AccessType.Exclusive) != 0;
             var ordered = (accType & AccessType.Ordered) != 0;
 
-            if (ordered)
-            {
-                EmitBarrier(context);
-            }
-
             if ((accType & AccessType.Load) != 0)
             {
+                if (ordered)
+                {
+                    EmitBarrier(context);
+                }
+
                 if (size == DWordSizeLog2)
                 {
                     // Keep loads atomic - make the call to get the whole region and then decompose it into parts
@@ -213,6 +218,11 @@ namespace ARMeilleure.Instructions
                 {
                     Operand value = context.ZeroExtend32(OperandType.I64, GetIntA32(context, op.Rt));
                     EmitStoreExclusive(context, address, value, exclusive, size, op.Rd, a32: true);
+                }
+
+                if (ordered)
+                {
+                    EmitBarrier(context);
                 }
             }
         }

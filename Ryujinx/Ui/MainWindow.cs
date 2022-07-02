@@ -1,20 +1,12 @@
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
-
-using ARMeilleure.Translation;
+﻿using ARMeilleure.Translation;
 using ARMeilleure.Translation.PTC;
-
 using Gtk;
-
 using LibHac.Common;
+using LibHac.Common.Keys;
 using LibHac.FsSystem;
-using LibHac.FsSystem.NcaUtils;
+using LibHac.Ncm;
 using LibHac.Ns;
-
+using LibHac.Tools.FsSystem;
 using Ryujinx.Audio.Backends.Dummy;
 using Ryujinx.Audio.Backends.OpenAL;
 using Ryujinx.Audio.Backends.SDL2;
@@ -24,12 +16,10 @@ using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.Common.System;
-using Ryujinx.Configuration;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.GAL.Multithreading;
 using Ryujinx.Graphics.OpenGL;
 using Ryujinx.HLE.FileSystem;
-using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS;
 using Ryujinx.HLE.HOS.Services.Account.Acc;
 using Ryujinx.HLE.HOS.SystemState;
@@ -38,13 +28,22 @@ using Ryujinx.Input.HLE;
 using Ryujinx.Input.SDL2;
 using Ryujinx.Modules;
 using Ryujinx.Ui.App;
+using Ryujinx.Ui.App.Common;
 using Ryujinx.Ui.Applet;
+using Ryujinx.Ui.Common;
+using Ryujinx.Ui.Common.Configuration;
+using Ryujinx.Ui.Common.Helper;
 using Ryujinx.Ui.Helper;
 using Ryujinx.Ui.Widgets;
 using Ryujinx.Ui.Windows;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 using GUI = Gtk.Builder.ObjectAttribute;
-
 using PtcLoadingState = ARMeilleure.Translation.PTC.PtcLoadingState;
 using ShaderCacheLoadingState = Ryujinx.Graphics.Gpu.Shader.ShaderCacheState;
 
@@ -107,6 +106,7 @@ namespace Ryujinx.Ui
         [GUI] MenuItem        _hideUi;
         [GUI] MenuItem        _fullScreen;
         [GUI] CheckMenuItem   _startFullScreen;
+        [GUI] CheckMenuItem   _showConsole;
         [GUI] CheckMenuItem   _favToggle;
         [GUI] MenuItem        _firmwareInstallDirectory;
         [GUI] MenuItem        _firmwareInstallFile;
@@ -129,12 +129,13 @@ namespace Ryujinx.Ui
         [GUI] Label           _gpuName;
         [GUI] Label           _progressLabel;
         [GUI] Label           _firmwareVersionLabel;
-        [GUI] ProgressBar     _progressBar;
+        [GUI] Gtk.ProgressBar _progressBar;
         [GUI] Box             _viewBox;
         [GUI] Label           _vSyncStatus;
+        [GUI] Label           _volumeStatus;
         [GUI] Box             _listStatusBox;
         [GUI] Label           _loadingStatusLabel;
-        [GUI] ProgressBar     _loadingStatusBar;
+        [GUI] Gtk.ProgressBar _loadingStatusBar;
 
 #pragma warning restore CS0649, IDE0044, CS0169
 
@@ -154,7 +155,7 @@ namespace Ryujinx.Ui
             DefaultWidth  = monitorWidth  < 1280 ? monitorWidth  : 1280;
             DefaultHeight = monitorHeight < 760  ? monitorHeight : 760;
 
-            Icon  = new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.Resources.Logo_Ryujinx.png");
+            Icon  = new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.Ui.Common.Resources.Logo_Ryujinx.png");
             Title = $"Ryujinx {Program.Version}";
 
             // Hide emulation context status bar.
@@ -177,7 +178,7 @@ namespace Ryujinx.Ui
             VirtualFileSystem.FixExtraData(_libHacHorizonManager.RyujinxClient);
 
             _contentManager         = new ContentManager(_virtualFileSystem);
-            _accountManager         = new AccountManager(_libHacHorizonManager.RyujinxClient);
+            _accountManager         = new AccountManager(_libHacHorizonManager.RyujinxClient, Program.CommandLineProfile);
             _userChannelPersistence = new UserChannelPersistence();
 
             // Instantiate GUI objects.
@@ -205,11 +206,15 @@ namespace Ryujinx.Ui
             ConfigurationState.Instance.System.IgnoreMissingServices.Event += UpdateIgnoreMissingServicesState;
             ConfigurationState.Instance.Graphics.AspectRatio.Event         += UpdateAspectRatioState;
             ConfigurationState.Instance.System.EnableDockedMode.Event      += UpdateDockedModeState;
+            ConfigurationState.Instance.System.AudioVolume.Event           += UpdateAudioVolumeState;
 
             if (ConfigurationState.Instance.Ui.StartFullscreen)
             {
                 _startFullScreen.Active = true;
             }
+
+            _showConsole.Active = ConfigurationState.Instance.Ui.ShowConsole.Value;
+            _showConsole.Visible = ConsoleHelper.SetConsoleWindowStateSupported;
 
             _actionMenu.Sensitive = false;
             _pauseEmulation.Sensitive = false;
@@ -303,6 +308,11 @@ namespace Ryujinx.Ui
             {
                 _emulationContext.System.ChangeDockedModeState(e.NewValue);
             }
+        }
+
+        private void UpdateAudioVolumeState(object sender, ReactiveEventArgs<float> e)
+        {
+            _emulationContext?.SetVolume(e.NewValue);
         }
 
         private void WindowStateEvent_Changed(object o, WindowStateEventArgs args)
@@ -427,7 +437,7 @@ namespace Ryujinx.Ui
                 else
                 {
                     Logger.Warning?.Print(LogClass.Audio, "SDL2 is not supported, trying to fall back to OpenAL.");
-                
+
                     if (OpenALHardwareDeviceDriver.IsSupported)
                     {
                         Logger.Warning?.Print(LogClass.Audio, "Found OpenAL, changing configuration.");
@@ -440,7 +450,7 @@ namespace Ryujinx.Ui
                     else
                     {
                         Logger.Warning?.Print(LogClass.Audio, "OpenAL is not supported, trying to fall back to SoundIO.");
-                         
+
                         if (SoundIoHardwareDeviceDriver.IsSupported)
                         {
                             Logger.Warning?.Print(LogClass.Audio, "Found SoundIO, changing configuration.");
@@ -453,8 +463,8 @@ namespace Ryujinx.Ui
                         else
                         {
                             Logger.Warning?.Print(LogClass.Audio, "SoundIO is not supported, falling back to dummy audio out.");
-                        }           
-                    }   
+                        }
+                    }
                 }
             }
             else if (ConfigurationState.Instance.System.AudioBackend.Value == AudioBackend.SoundIo)
@@ -492,7 +502,7 @@ namespace Ryujinx.Ui
                         else
                         {
                             Logger.Warning?.Print(LogClass.Audio, "OpenAL is not supported, falling back to dummy audio out.");
-                        }           
+                        }
                     }
                 }
             }
@@ -518,7 +528,7 @@ namespace Ryujinx.Ui
                     else
                     {
                         Logger.Warning?.Print(LogClass.Audio, "SDL2 is not supported, trying to fall back to SoundIO.");
-                        
+
                         if (SoundIoHardwareDeviceDriver.IsSupported)
                         {
                             Logger.Warning?.Print(LogClass.Audio, "Found SoundIO, changing configuration.");
@@ -556,13 +566,15 @@ namespace Ryujinx.Ui
                                                                           ConfigurationState.Instance.Graphics.EnableVsync,
                                                                           ConfigurationState.Instance.System.EnableDockedMode,
                                                                           ConfigurationState.Instance.System.EnablePtc,
+                                                                          ConfigurationState.Instance.System.EnableInternetAccess,
                                                                           fsIntegrityCheckLevel,
                                                                           ConfigurationState.Instance.System.FsGlobalAccessLogMode,
                                                                           ConfigurationState.Instance.System.SystemTimeOffset,
                                                                           ConfigurationState.Instance.System.TimeZone,
                                                                           ConfigurationState.Instance.System.MemoryManagerMode,
                                                                           ConfigurationState.Instance.System.IgnoreMissingServices,
-                                                                          ConfigurationState.Instance.Graphics.AspectRatio);
+                                                                          ConfigurationState.Instance.Graphics.AspectRatio,
+                                                                          ConfigurationState.Instance.System.AudioVolume);
 
             _emulationContext = new HLE.Switch(configuration);
         }
@@ -629,18 +641,18 @@ namespace Ryujinx.Ui
         [Conditional("RELEASE")]
         public void PerformanceCheck()
         {
-            if (ConfigurationState.Instance.Logger.EnableDebug.Value)
+            if (ConfigurationState.Instance.Logger.EnableTrace.Value)
             {
                 MessageDialog debugWarningDialog = new MessageDialog(this, DialogFlags.Modal, MessageType.Warning, ButtonsType.YesNo, null)
                 {
                     Title         = "Ryujinx - Warning",
-                    Text          = "You have debug logging enabled, which is designed to be used by developers only.",
-                    SecondaryText = "For optimal performance, it's recommended to disable debug logging. Would you like to disable debug logging now?"
+                    Text          = "You have trace logging enabled, which is designed to be used by developers only.",
+                    SecondaryText = "For optimal performance, it's recommended to disable trace logging. Would you like to disable trace logging now?"
                 };
 
                 if (debugWarningDialog.Run() == (int)ResponseType.Yes)
                 {
-                    ConfigurationState.Instance.Logger.EnableDebug.Value = false;
+                    ConfigurationState.Instance.Logger.EnableTrace.Value = false;
                     SaveConfig();
                 }
 
@@ -1108,11 +1120,12 @@ namespace Ryujinx.Ui
         {
             Application.Invoke(delegate
             {
-                _gameStatus.Text  = args.GameStatus;
-                _fifoStatus.Text  = args.FifoStatus;
-                _gpuName.Text     = args.GpuName;
-                _dockedMode.Text  = args.DockedMode;
-                _aspectRatio.Text = args.AspectRatio;
+                _gameStatus.Text   = args.GameStatus;
+                _fifoStatus.Text   = args.FifoStatus;
+                _gpuName.Text      = args.GpuName;
+                _dockedMode.Text   = args.DockedMode;
+                _aspectRatio.Text  = args.AspectRatio;
+                _volumeStatus.Text = GetVolumeLabelText(args.Volume);
 
                 if (args.VSyncEnabled)
                 {
@@ -1173,11 +1186,33 @@ namespace Ryujinx.Ui
             ConfigurationState.Instance.System.EnableDockedMode.Value = !ConfigurationState.Instance.System.EnableDockedMode.Value;
         }
 
+        private string GetVolumeLabelText(float volume)
+        {
+            string icon = volume == 0 ? "🔇" : "🔊";
+
+            return $"{icon} {(int)(volume * 100)}%";
+        }
+
+        private void VolumeStatus_Clicked(object sender, ButtonReleaseEventArgs args)
+        {
+            if (_emulationContext != null)
+            {
+                if (_emulationContext.IsAudioMuted())
+                {
+                    _emulationContext.SetVolume(ConfigurationState.Instance.System.AudioVolume);
+                }
+                else
+                {
+                    _emulationContext.SetVolume(0);
+                }
+            }
+        }
+
         private void AspectRatio_Clicked(object sender, ButtonReleaseEventArgs args)
         {
             AspectRatio aspectRatio = ConfigurationState.Instance.Graphics.AspectRatio.Value;
 
-            ConfigurationState.Instance.Graphics.AspectRatio.Value = ((int)aspectRatio + 1) > Enum.GetNames(typeof(AspectRatio)).Length - 1 ? AspectRatio.Fixed4x3 : aspectRatio + 1;
+            ConfigurationState.Instance.Graphics.AspectRatio.Value = ((int)aspectRatio + 1) > Enum.GetNames<AspectRatio>().Length - 1 ? AspectRatio.Fixed4x3 : aspectRatio + 1;
         }
 
         private void Row_Clicked(object sender, ButtonReleaseEventArgs args)
@@ -1247,7 +1282,7 @@ namespace Ryujinx.Ui
 
         private void Load_Mii_Edit_Applet(object sender, EventArgs args)
         {
-            string contentPath = _contentManager.GetInstalledContentPath(0x0100000000001009, StorageId.NandSystem, NcaContentType.Program);
+            string contentPath = _contentManager.GetInstalledContentPath(0x0100000000001009, StorageId.BuiltInSystem, NcaContentType.Program);
 
             LoadApplication(contentPath);
         }
@@ -1259,7 +1294,7 @@ namespace Ryujinx.Ui
 
         private void OpenLogsFolder_Pressed(object sender, EventArgs args)
         {
-            string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+            string logPath = System.IO.Path.Combine(ReleaseInformations.GetBaseApplicationDirectory(), "Logs");
 
             new DirectoryInfo(logPath).Create();
 
@@ -1438,7 +1473,7 @@ namespace Ryujinx.Ui
                         thread.Start();
                     }
                 }
-                catch (LibHac.MissingKeyException ex)
+                catch (MissingKeyException ex)
                 {
                     Logger.Error?.Print(LogClass.Application, ex.ToString());
                     UserErrorDialog.CreateUserErrorDialog(UserError.FirmwareParsingFailed);
@@ -1503,6 +1538,13 @@ namespace Ryujinx.Ui
             SaveConfig();
         }
 
+        private void ShowConsole_Toggled(object sender, EventArgs args)
+        {
+            ConfigurationState.Instance.Ui.ShowConsole.Value = _showConsole.Active;
+
+            SaveConfig();
+        }
+
         private void OptionMenu_StateChanged(object o, StateChangedArgs args)
         {
             _manageUserProfiles.Sensitive = _emulationContext == null;
@@ -1519,6 +1561,20 @@ namespace Ryujinx.Ui
         private void HideUi_Pressed(object sender, EventArgs args)
         {
             ToggleExtraWidgets(false);
+        }
+
+        private void ManageCheats_Pressed(object sender, EventArgs args)
+        {
+           var window = new CheatWindow(_virtualFileSystem, _emulationContext.Application.TitleId, _emulationContext.Application.TitleName);
+
+            window.Destroyed += CheatWindow_Destroyed;
+            window.Show();
+        }
+
+        private void CheatWindow_Destroyed(object sender, EventArgs e)
+        {
+            _emulationContext.EnableCheats();
+            (sender as CheatWindow).Destroyed -= CheatWindow_Destroyed;
         }
 
         private void ManageUserProfiles_Pressed(object sender, EventArgs args)

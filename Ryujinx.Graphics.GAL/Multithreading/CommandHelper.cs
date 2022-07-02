@@ -4,7 +4,6 @@ using Ryujinx.Graphics.GAL.Multithreading.Commands.CounterEvent;
 using Ryujinx.Graphics.GAL.Multithreading.Commands.Program;
 using Ryujinx.Graphics.GAL.Multithreading.Commands.Renderer;
 using Ryujinx.Graphics.GAL.Multithreading.Commands.Sampler;
-using Ryujinx.Graphics.GAL.Multithreading.Commands.Shader;
 using Ryujinx.Graphics.GAL.Multithreading.Commands.Texture;
 using Ryujinx.Graphics.GAL.Multithreading.Commands.Window;
 using System;
@@ -53,8 +52,6 @@ namespace Ryujinx.Graphics.GAL.Multithreading
         {
             _lookup[(int)CommandType.Action] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 ActionCommand.Run(ref GetCommand<ActionCommand>(memory), threaded, renderer);
-            _lookup[(int)CommandType.CompileShader] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
-                CompileShaderCommand.Run(ref GetCommand<CompileShaderCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.CreateBuffer] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 CreateBufferCommand.Run(ref GetCommand<CreateBufferCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.CreateProgram] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
@@ -98,9 +95,6 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             _lookup[(int)CommandType.SamplerDispose] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 SamplerDisposeCommand.Run(ref GetCommand<SamplerDisposeCommand>(memory), threaded, renderer);
 
-            _lookup[(int)CommandType.ShaderDispose] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
-                ShaderDisposeCommand.Run(ref GetCommand<ShaderDisposeCommand>(memory), threaded, renderer);
-
             _lookup[(int)CommandType.TextureCopyTo] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 TextureCopyToCommand.Run(ref GetCommand<TextureCopyToCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureCopyToScaled] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
@@ -111,6 +105,8 @@ namespace Ryujinx.Graphics.GAL.Multithreading
                 TextureCreateViewCommand.Run(ref GetCommand<TextureCreateViewCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureGetData] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 TextureGetDataCommand.Run(ref GetCommand<TextureGetDataCommand>(memory), threaded, renderer);
+            _lookup[(int)CommandType.TextureGetDataSlice] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
+                TextureGetDataSliceCommand.Run(ref GetCommand<TextureGetDataSliceCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureRelease] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>
                 TextureReleaseCommand.Run(ref GetCommand<TextureReleaseCommand>(memory), threaded, renderer);
             _lookup[(int)CommandType.TextureSetData] = (Span<byte> memory, ThreadedRenderer threaded, IRenderer renderer) =>

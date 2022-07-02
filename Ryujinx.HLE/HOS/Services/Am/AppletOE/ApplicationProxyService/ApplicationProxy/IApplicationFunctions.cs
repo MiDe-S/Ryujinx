@@ -2,9 +2,12 @@ using LibHac;
 using LibHac.Account;
 using LibHac.Common;
 using LibHac.Fs;
+using LibHac.FsSystem;
+using LibHac.Ncm;
 using LibHac.Ns;
 using Ryujinx.Common;
 using Ryujinx.Common.Logging;
+using Ryujinx.HLE.Exceptions;
 using Ryujinx.HLE.HOS.Ipc;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Memory;
@@ -15,6 +18,7 @@ using Ryujinx.HLE.HOS.Services.Sdb.Pdm.QueryService;
 using Ryujinx.HLE.HOS.SystemState;
 using System;
 using System.Numerics;
+using System.Threading;
 
 using static LibHac.Fs.ApplicationSaveDataManagement;
 using AccountUid    = Ryujinx.HLE.HOS.Services.Account.Acc.UserId;
@@ -36,6 +40,10 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         private int _friendInvitationStorageChannelEventHandle;
         private int _notificationStorageChannelEventHandle;
         private int _healthWarningDisappearedSystemEventHandle;
+
+        private bool _gamePlayRecordingState;
+
+        private int _jitLoaded;
 
         private HorizonClient _horizon;
 
@@ -116,7 +124,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
 
             ref ApplicationControlProperty control = ref controlHolder.Value;
 
-            if (LibHac.Utilities.IsZeros(controlHolder.ByteSpan))
+            if (LibHac.Common.Utilities.IsZeros(controlHolder.ByteSpan))
             {
                 // If the current application doesn't have a loaded control property, create a dummy one
                 // and set the savedata sizes so a user savedata will be created.
@@ -131,7 +139,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             }
 
             HorizonClient hos = context.Device.System.LibHacHorizonManager.AmClient;
-            Result result = EnsureApplicationSaveData(hos.Fs, out long requiredSize, applicationId, ref control, ref userId);
+            Result result = hos.Fs.EnsureApplicationSaveData(out long requiredSize, applicationId, in control, in userId);
 
             context.ResponseData.Write(requiredSize);
 
@@ -148,7 +156,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             // TODO: When above calls are implemented, switch to using ns:am
 
             long desiredLanguageCode = context.Device.System.State.DesiredLanguageCode;
-            int  supportedLanguages  = (int)context.Device.Application.ControlData.Value.SupportedLanguages;
+            int  supportedLanguages  = (int)context.Device.Application.ControlData.Value.SupportedLanguageFlag;
             int  firstSupported      = BitOperations.TrailingZeroCount(supportedLanguages);
 
             if (firstSupported > (int)SystemState.TitleLanguage.BrazilianPortuguese)
@@ -190,7 +198,6 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         // GetDisplayVersion() -> nn::oe::DisplayVersion
         public ResultCode GetDisplayVersion(ServiceCtx context)
         {
-            // This should work as DisplayVersion U8Span always gives a 0x10 size byte array.
             // If an NACP isn't found, the buffer will be all '\0' which seems to be the correct implementation.
             context.ResponseData.Write(context.Device.Application.ControlData.Value.DisplayVersion);
 
@@ -252,7 +259,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             BlitStruct<ApplicationControlProperty> controlHolder = context.Device.Application.ControlData;
 
             Result result = _horizon.Fs.CreateApplicationCacheStorage(out long requiredSize,
-                out CacheStorageTargetMedia storageTarget, applicationId, ref controlHolder.Value, index, saveSize,
+                out CacheStorageTargetMedia storageTarget, applicationId, in controlHolder.Value, index, saveSize,
                 journalSize);
 
             if (result.IsFailure()) return (ResultCode)result.Value;
@@ -330,6 +337,28 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             return ResultCode.Success;
         }
 
+        [CommandHipc(60)] // 2.0.0+
+        // SetMediaPlaybackStateForApplication(bool enabled)
+        public ResultCode SetMediaPlaybackStateForApplication(ServiceCtx context)
+        {
+            bool enabled = context.RequestData.ReadBoolean();
+
+            // NOTE: Service stores the "enabled" value in a private field, when enabled is false, it stores nn::os::GetSystemTick() too.
+
+            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { enabled });
+
+            return ResultCode.Success;
+        }
+
+        [CommandHipc(65)] // 3.0.0+
+        // IsGamePlayRecordingSupported() -> u8
+        public ResultCode IsGamePlayRecordingSupported(ServiceCtx context)
+        {
+            context.ResponseData.Write(_gamePlayRecordingState);
+
+            return ResultCode.Success;
+        }
+
         [CommandHipc(66)] // 3.0.0+
         // InitializeGamePlayRecording(u64, handle<copy>)
         public ResultCode InitializeGamePlayRecording(ServiceCtx context)
@@ -343,9 +372,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         // SetGamePlayRecordingState(u32)
         public ResultCode SetGamePlayRecordingState(ServiceCtx context)
         {
-            int state = context.RequestData.ReadInt32();
+            _gamePlayRecordingState = context.RequestData.ReadInt32() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { state });
+            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { _gamePlayRecordingState });
 
             return ResultCode.Success;
         }
@@ -616,6 +645,32 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             }
 
             context.Response.HandleDesc = IpcHandleDesc.MakeCopy(_healthWarningDisappearedSystemEventHandle);
+
+            return ResultCode.Success;
+        }
+
+        [CommandHipc(1001)] // 10.0.0+
+        // PrepareForJit()
+        public ResultCode PrepareForJit(ServiceCtx context)
+        {
+            if (Interlocked.Exchange(ref _jitLoaded, 1) == 0)
+            {
+                string jitPath = context.Device.System.ContentManager.GetInstalledContentPath(0x010000000000003B, StorageId.BuiltInSystem, NcaContentType.Program);
+                string filePath = context.Device.FileSystem.SwitchPathToSystemPath(jitPath);
+
+                if (string.IsNullOrWhiteSpace(filePath))
+                {
+                    throw new InvalidSystemResourceException($"JIT (010000000000003B) system title not found! The JIT will not work, provide the system archive to fix this error. (See https://github.com/Ryujinx/Ryujinx#requirements for more information)");
+                }
+
+                context.Device.Application.LoadServiceNca(filePath);
+
+                // FIXME: Most likely not how this should be done?
+                while (!context.Device.System.SmRegistry.IsServiceRegistered("jit:u"))
+                {
+                    context.Device.System.SmRegistry.WaitForServiceRegistration();
+                }
+            }
 
             return ResultCode.Success;
         }

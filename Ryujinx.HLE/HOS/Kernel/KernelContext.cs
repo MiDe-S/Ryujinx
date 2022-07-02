@@ -1,4 +1,5 @@
-﻿using Ryujinx.HLE.HOS.Kernel.Common;
+﻿using Ryujinx.Cpu;
+using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Memory;
 using Ryujinx.HLE.HOS.Kernel.Process;
 using Ryujinx.HLE.HOS.Kernel.SupervisorCall;
@@ -23,6 +24,7 @@ namespace Ryujinx.HLE.HOS.Kernel
 
         public Switch Device { get; }
         public MemoryBlock Memory { get; }
+        public ITickSource TickSource { get; }
         public Syscall Syscall { get; }
         public SyscallHandler SyscallHandler { get; }
 
@@ -42,21 +44,23 @@ namespace Ryujinx.HLE.HOS.Kernel
         public KSynchronization Synchronization { get; }
         public KContextIdManager ContextIdManager { get; }
 
-        public ConcurrentDictionary<long, KProcess> Processes { get; }
+        public ConcurrentDictionary<ulong, KProcess> Processes { get; }
         public ConcurrentDictionary<string, KAutoObject> AutoObjectNames { get; }
 
         public bool ThreadReselectionRequested { get; set; }
 
-        private long _kipId;
-        private long _processId;
-        private long _threadUid;
+        private ulong _kipId;
+        private ulong _processId;
+        private ulong _threadUid;
 
         public KernelContext(
+            ITickSource tickSource,
             Switch device,
             MemoryBlock memory,
             MemorySize memorySize,
             MemoryArrange memoryArrange)
         {
+            TickSource = tickSource;
             Device = device;
             Memory = memory;
 
@@ -98,7 +102,7 @@ namespace Ryujinx.HLE.HOS.Kernel
 
             KernelInitialized = true;
 
-            Processes = new ConcurrentDictionary<long, KProcess>();
+            Processes = new ConcurrentDictionary<ulong, KProcess>();
             AutoObjectNames = new ConcurrentDictionary<string, KAutoObject>();
 
             _kipId = KernelConstants.InitialKipId;
@@ -115,17 +119,17 @@ namespace Ryujinx.HLE.HOS.Kernel
             new Thread(PreemptionThreadStart) { Name = "HLE.PreemptionThread" }.Start();
         }
 
-        public long NewThreadUid()
+        public ulong NewThreadUid()
         {
             return Interlocked.Increment(ref _threadUid) - 1;
         }
 
-        public long NewKipId()
+        public ulong NewKipId()
         {
             return Interlocked.Increment(ref _kipId) - 1;
         }
 
-        public long NewProcessId()
+        public ulong NewProcessId()
         {
             return Interlocked.Increment(ref _processId) - 1;
         }

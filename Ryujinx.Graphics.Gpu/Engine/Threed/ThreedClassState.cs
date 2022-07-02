@@ -730,7 +730,9 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         public int PatchVertices;
         public fixed uint ReservedDD0[4];
         public uint TextureBarrier;
-        public fixed uint ReservedDE4[7];
+        public uint WatchdogTimer;
+        public Boolean32 PrimitiveRestartDrawArrays;
+        public fixed uint ReservedDEC[5];
         public Array16<ScissorState> ScissorState;
         public fixed uint ReservedF00[21];
         public StencilBackMasks StencilBackMasks;
@@ -754,7 +756,9 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         public int DrawTextureTextureId;
         public int DrawTextureSrcX;
         public int DrawTextureSrcY;
-        public fixed uint Reserved10B0[44];
+        public fixed uint Reserved10B0[18];
+        public uint ClearFlags;
+        public fixed uint Reserved10FC[25];
         public Array16<VertexAttribState> VertexAttribState;
         public fixed uint Reserved11A0[31];
         public RtControl RtControl;
@@ -784,7 +788,10 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         public YControl YControl;
         public float LineWidthSmooth;
         public float LineWidthAliased;
-        public fixed uint Reserved13B8[31];
+        public fixed uint Reserved13B8[27];
+        public uint InvalidateSamplerCacheNoWfi;
+        public uint InvalidateTextureHeaderCacheNoWfi;
+        public fixed uint Reserved142C[2];
         public uint FirstVertex;
         public uint FirstInstance;
         public fixed uint Reserved143C[53];

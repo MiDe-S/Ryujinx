@@ -1,6 +1,5 @@
 using Ryujinx.Graphics.GAL;
 using System;
-using System.Numerics;
 
 namespace Ryujinx.Graphics.Gpu.Image
 {
@@ -9,7 +8,10 @@ namespace Ryujinx.Graphics.Gpu.Image
     /// </summary>
     class Sampler : IDisposable
     {
-        private const int MinLevelsForAnisotropic = 5;
+        /// <summary>
+        /// True if the sampler is disposed, false otherwise.
+        /// </summary>
+        public bool IsDisposed { get; private set; }
 
         /// <summary>
         /// Host sampler object.
@@ -96,26 +98,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <returns>A host sampler</returns>
         public ISampler GetHostSampler(Texture texture)
         {
-            return _anisoSampler != null && AllowForceAnisotropy(texture) ? _anisoSampler : _hostSampler;
-        }
-
-        /// <summary>
-        /// Determine if the given texture can have anisotropic filtering forced.
-        /// Filtered textures that we might want to force anisotropy on should have a lot of mip levels.
-        /// </summary>
-        /// <param name="texture">The texture</param>
-        /// <returns>True if anisotropic filtering can be forced, false otherwise</returns>
-        private static bool AllowForceAnisotropy(Texture texture)
-        {
-            if (texture == null || !(texture.Target == Target.Texture2D || texture.Target == Target.Texture2DArray))
-            {
-                return false;
-            }
-
-            int maxSize = Math.Max(texture.Info.Width, texture.Info.Height);
-            int maxLevels = BitOperations.Log2((uint)maxSize) + 1;
-
-            return texture.Info.Levels >= Math.Min(MinLevelsForAnisotropic, maxLevels);
+            return _anisoSampler != null && texture?.CanForceAnisotropy == true ? _anisoSampler : _hostSampler;
         }
 
         /// <summary>
@@ -123,6 +106,8 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// </summary>
         public void Dispose()
         {
+            IsDisposed = true;
+
             _hostSampler.Dispose();
             _anisoSampler?.Dispose();
         }

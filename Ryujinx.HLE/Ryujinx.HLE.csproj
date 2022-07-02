@@ -13,6 +13,9 @@
     <ProjectReference Include="..\Ryujinx.Graphics.Host1x\Ryujinx.Graphics.Host1x.csproj" />
     <ProjectReference Include="..\Ryujinx.Graphics.Nvdec\Ryujinx.Graphics.Nvdec.csproj" />
     <ProjectReference Include="..\Ryujinx.Graphics.Vic\Ryujinx.Graphics.Vic.csproj" />
+    <ProjectReference Include="..\Ryujinx.Horizon.Generators\Ryujinx.Horizon.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Ryujinx.Memory\Ryujinx.Memory.csproj" />
     <ProjectReference Include="..\ARMeilleure\ARMeilleure.csproj" />
     <ProjectReference Include="..\Ryujinx.Graphics.Gpu\Ryujinx.Graphics.Gpu.csproj" />
@@ -20,10 +23,11 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Concentus" Version="1.1.7" />
-    <PackageReference Include="LibHac" Version="0.13.3" />
+    <PackageReference Include="LibHac" Version="0.16.1" />
     <PackageReference Include="MsgPack.Cli" Version="1.0.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="1.0.4" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta11" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.15.0" />
   </ItemGroup>
   <!-- Due to Concentus. -->
   <PropertyGroup>

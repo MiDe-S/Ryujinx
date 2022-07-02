@@ -2,7 +2,7 @@
 using ARMeilleure.State;
 using ARMeilleure.Translation;
 using NUnit.Framework;
-using Ryujinx.Cpu;
+using Ryujinx.Cpu.Jit;
 using Ryujinx.Memory;
 using Ryujinx.Tests.Unicorn;
 using System;
@@ -49,9 +49,9 @@ namespace Ryujinx.Tests.Cpu
             _currAddress = CodeBaseAddress;
 
             _ram = new MemoryBlock(Size * 2);
-            _memory = new MemoryManager(1ul << 16);
+            _memory = new MemoryManager(_ram, 1ul << 16);
             _memory.IncrementReferenceCount();
-            _memory.Map(CodeBaseAddress, _ram.GetPointer(0, Size * 2), Size * 2);
+            _memory.Map(CodeBaseAddress, 0, Size * 2);
 
             _context = CpuContext.CreateExecutionContext();
             _context.IsAarch32 = true;
@@ -106,6 +106,18 @@ namespace Ryujinx.Tests.Cpu
             _currAddress += 4;
         }
 
+        protected void ThumbOpcode(ushort opcode)
+        {
+            _memory.Write(_currAddress, opcode);
+
+            if (_unicornAvailable)
+            {
+                _unicornEmu.MemoryWrite16(_currAddress, opcode);
+            }
+
+            _currAddress += 2;
+        }
+
         protected ExecutionContext GetContext() => _context;
 
         protected void SetContext(uint r0 = 0,
@@ -126,7 +138,8 @@ namespace Ryujinx.Tests.Cpu
                                   bool carry = false,
                                   bool zero = false,
                                   bool negative = false,
-                                  int fpscr = 0)
+                                  int fpscr = 0,
+                                  bool thumb = false)
         {
             _context.SetX(0, r0);
             _context.SetX(1, r1);
@@ -150,6 +163,8 @@ namespace Ryujinx.Tests.Cpu
             _context.SetPstateFlag(PState.NFlag, negative);
 
             SetFpscr((uint)fpscr);
+
+            _context.SetPstateFlag(PState.TFlag, thumb);
 
             if (_unicornAvailable)
             {
@@ -175,6 +190,8 @@ namespace Ryujinx.Tests.Cpu
                 _unicornEmu.NegativeFlag = negative;
 
                 _unicornEmu.Fpscr = fpscr;
+
+                _unicornEmu.ThumbFlag = thumb;
             }
         }
 
@@ -216,6 +233,86 @@ namespace Ryujinx.Tests.Cpu
             ExecuteOpcodes(runUnicorn);
 
             return GetContext();
+        }
+
+        protected ExecutionContext SingleThumbOpcode(ushort opcode,
+                                                     uint r0 = 0,
+                                                     uint r1 = 0,
+                                                     uint r2 = 0,
+                                                     uint r3 = 0,
+                                                     uint sp = 0,
+                                                     bool saturation = false,
+                                                     bool overflow = false,
+                                                     bool carry = false,
+                                                     bool zero = false,
+                                                     bool negative = false,
+                                                     int fpscr = 0,
+                                                     bool runUnicorn = true)
+        {
+            ThumbOpcode(opcode);
+            ThumbOpcode(0x4770); // BX LR
+            SetContext(r0, r1, r2, r3, sp, default, default, default, default, default, default, default, default, saturation, overflow, carry, zero, negative, fpscr, thumb: true);
+            ExecuteOpcodes(runUnicorn);
+
+            return GetContext();
+        }
+
+        public void RunPrecomputedTestCase(PrecomputedThumbTestCase test)
+        {
+            foreach (ushort instruction in test.Instructions)
+            {
+                ThumbOpcode(instruction);
+            }
+
+            for (int i = 0; i < 15; i++)
+            {
+                GetContext().SetX(i, test.StartRegs[i]);
+            }
+
+            uint startCpsr = test.StartRegs[15];
+            for (int i = 0; i < 32; i++)
+            {
+                GetContext().SetPstateFlag((PState)i, (startCpsr & (1u << i)) != 0);
+            }
+
+            ExecuteOpcodes(runUnicorn: false);
+
+            for (int i = 0; i < 15; i++)
+            {
+                Assert.That(GetContext().GetX(i), Is.EqualTo(test.FinalRegs[i]));
+            }
+
+            uint finalCpsr = test.FinalRegs[15];
+            Assert.That(GetContext().Pstate, Is.EqualTo(finalCpsr));
+        }
+
+        public void RunPrecomputedTestCase(PrecomputedMemoryThumbTestCase test)
+        {
+            byte[] testMem = new byte[Size];
+
+            for (ulong i = 0; i < Size; i += 2)
+            {
+                testMem[i + 0] = (byte)((i + DataBaseAddress) >> 0);
+                testMem[i + 1] = (byte)((i + DataBaseAddress) >> 8);
+            }
+
+            SetWorkingMemory(0, testMem);
+
+            RunPrecomputedTestCase(new PrecomputedThumbTestCase(){
+                Instructions = test.Instructions,
+                StartRegs = test.StartRegs,
+                FinalRegs = test.FinalRegs,
+            });
+
+            foreach (var delta in test.MemoryDelta)
+            {
+                testMem[delta.Address - DataBaseAddress + 0] = (byte)(delta.Value >> 0);
+                testMem[delta.Address - DataBaseAddress + 1] = (byte)(delta.Value >> 8);
+            }
+
+            byte[] mem = _memory.GetSpan(DataBaseAddress, (int)Size).ToArray();
+
+            Assert.That(mem, Is.EqualTo(testMem), "testmem");
         }
 
         protected void SetWorkingMemory(uint offset, byte[] data)

@@ -1,6 +1,6 @@
-﻿using LibHac.FsSystem.NcaUtils;
+﻿using LibHac.FsSystem;
+using LibHac.Ncm;
 using Ryujinx.HLE.FileSystem;
-using Ryujinx.HLE.FileSystem.Content;
 using System.Text;
 
 using static Ryujinx.HLE.Utilities.StringUtils;

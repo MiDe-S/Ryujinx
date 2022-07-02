@@ -52,12 +52,13 @@ namespace Ryujinx.Graphics.GAL
         R32G32B32A32Sint,
         S8Uint,
         D16Unorm,
-        D24X8Unorm,
+        S8UintD24Unorm,
         D32Float,
         D24UnormS8Uint,
         D32FloatS8Uint,
         R8G8B8X8Srgb,
         R8G8B8A8Srgb,
+        R4G4Unorm,
         R4G4B4A4Unorm,
         R5G5B5X1Unorm,
         R5G5B5A1Unorm,
@@ -66,11 +67,9 @@ namespace Ryujinx.Graphics.GAL
         R10G10B10A2Uint,
         R11G11B10Float,
         R9G9B9E5Float,
-        Bc1RgbUnorm,
         Bc1RgbaUnorm,
         Bc2Unorm,
         Bc3Unorm,
-        Bc1RgbSrgb,
         Bc1RgbaSrgb,
         Bc2Srgb,
         Bc3Srgb,
@@ -267,7 +266,7 @@ namespace Ryujinx.Graphics.GAL
             {
                 case Format.D16Unorm:
                 case Format.D24UnormS8Uint:
-                case Format.D24X8Unorm:
+                case Format.S8UintD24Unorm:
                 case Format.D32Float:
                 case Format.D32FloatS8Uint:
                 case Format.S8Uint:
@@ -347,26 +346,6 @@ namespace Ryujinx.Graphics.GAL
         public static bool IsInteger(this Format format)
         {
             return format.IsUint() || format.IsSint();
-        }
-
-        /// <summary>
-        /// Checks if the texture format is a BC4 compressed format.
-        /// </summary>
-        /// <param name="format">Texture format</param>
-        /// <returns>True if the texture format is a BC4 compressed format, false otherwise</returns>
-        public static bool IsBc4(this Format format)
-        {
-            return format == Format.Bc4Unorm || format == Format.Bc4Snorm;
-        }
-
-        /// <summary>
-        /// Checks if the texture format is a BC5 compressed format.
-        /// </summary>
-        /// <param name="format">Texture format</param>
-        /// <returns>True if the texture format is a BC5 compressed format, false otherwise</returns>
-        public static bool IsBc5(this Format format)
-        {
-            return format == Format.Bc5Unorm || format == Format.Bc5Snorm;
         }
     }
 }

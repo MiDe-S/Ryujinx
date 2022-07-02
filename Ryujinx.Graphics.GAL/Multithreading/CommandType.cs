@@ -3,7 +3,6 @@
     enum CommandType : byte
     {
         Action,
-        CompileShader,
         CreateBuffer,
         CreateProgram,
         CreateSampler,
@@ -29,13 +28,12 @@
 
         SamplerDispose,
 
-        ShaderDispose,
-
         TextureCopyTo,
         TextureCopyToScaled,
         TextureCopyToSlice,
         TextureCreateView,
         TextureGetData,
+        TextureGetDataSlice,
         TextureRelease,
         TextureSetData,
         TextureSetDataSlice,

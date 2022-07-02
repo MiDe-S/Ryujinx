@@ -1,17 +1,17 @@
 using Ryujinx.Common;
-using Ryujinx.HLE.Exceptions;
 using Ryujinx.Common.Configuration.Hid;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Ryujinx.Common.Memory;
+using Ryujinx.HLE.Exceptions;
+using Ryujinx.HLE.HOS.Kernel.Memory;
 using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory;
 using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.Common;
-using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.Mouse;
-using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.Keyboard;
 using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.DebugPad;
-using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.TouchScreen;
+using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.Keyboard;
+using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.Mouse;
 using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.Npad;
-using Ryujinx.HLE.HOS.Kernel.Memory;
+using Ryujinx.HLE.HOS.Services.Hid.Types.SharedMemory.TouchScreen;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace Ryujinx.HLE.HOS.Services.Hid
 {
@@ -55,9 +55,11 @@ namespace Ryujinx.HLE.HOS.Services.Hid
             _storage = storage;
 
             SharedMemory = SharedMemory.Create();
+
+            InitDevices();
         }
 
-        public void InitDevices()
+        private void InitDevices()
         {
             DebugPad    = new DebugPadDevice(_device, true);
             Touchscreen = new TouchDevice(_device, true);

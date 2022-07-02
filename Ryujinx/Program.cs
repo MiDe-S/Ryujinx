@@ -1,13 +1,15 @@
 using ARMeilleure.Translation.PTC;
 using Gtk;
+using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.GraphicsDriver;
 using Ryujinx.Common.Logging;
 using Ryujinx.Common.System;
 using Ryujinx.Common.SystemInfo;
-using Ryujinx.Configuration;
+using Ryujinx.Ui.Common.Configuration;
 using Ryujinx.Modules;
 using Ryujinx.Ui;
+using Ryujinx.Ui.Common;
 using Ryujinx.Ui.Widgets;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using System;
@@ -26,11 +28,25 @@ namespace Ryujinx
 
         public static string ConfigurationPath { get; set; }
 
+        public static string CommandLineProfile { get; set; }
+
         [DllImport("libX11")]
         private extern static int XInitThreads();
 
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern int MessageBoxA(IntPtr hWnd, string text, string caption, uint type);
+
+        private const uint MB_ICONWARNING = 0x30;
+
         static void Main(string[] args)
-        { 
+        {
+            Version = ReleaseInformations.GetVersion();
+
+            if (OperatingSystem.IsWindows() && !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17134))
+            {
+                MessageBoxA(IntPtr.Zero, "You are running an outdated version of Windows.\n\nStarting on June 1st 2022, Ryujinx will only support Windows 10 1803 and newer.\n", $"Ryujinx {Version}", MB_ICONWARNING);
+            }
+
             // Parse Arguments.
             string launchPathArg      = null;
             string baseDirPathArg     = null;
@@ -51,6 +67,17 @@ namespace Ryujinx
 
                     baseDirPathArg = args[++i];
                 }
+                else if (arg == "-p" || arg == "--profile")
+                {
+                    if (i + 1 >= args.Length)
+                    {
+                        Logger.Error?.Print(LogClass.Application, $"Invalid option '{arg}'");
+
+                        continue;
+                    }
+
+                    CommandLineProfile = args[++i];
+                }
                 else if (arg == "-f" || arg == "--fullscreen")
                 {
                     startFullscreenArg = true;
@@ -61,17 +88,12 @@ namespace Ryujinx
                 }
             }
 
-            // Enforce loading of Mono.Posix to avoid .NET runtime lazy loading it during an update.
-            Assembly.Load("Mono.Posix.NETStandard");
-
             // Make process DPI aware for proper window sizing on high-res screens.
             ForceDpiAware.Windows();
             WindowScaleFactor = ForceDpiAware.GetWindowScaleFactor();
 
             // Delete backup files after updating.
             Task.Run(Updater.CleanupUpdate);
-
-            Version = Assembly.GetEntryAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
 
             Console.Title = $"Ryujinx Console {Version}";
 

@@ -60,6 +60,18 @@ namespace Ryujinx.HLE.Utilities
             return output;
         }
 
+        public static string ReadUtf8String(ReadOnlySpan<byte> data, out int dataRead)
+        {
+            dataRead = data.IndexOf((byte)0) + 1;
+
+            if (dataRead <= 1)
+            {
+                return string.Empty;
+            }
+
+            return Encoding.UTF8.GetString(data[..dataRead]);
+        }
+
         public static string ReadUtf8String(ServiceCtx context, int index = 0)
         {
             ulong position = context.Request.PtrBuff[index].Position;
@@ -116,7 +128,7 @@ namespace Ryujinx.HLE.Utilities
             }
         }
 
-        public static int CompareCStr(ReadOnlySpan<char> s1, ReadOnlySpan<char> s2)
+        public static int CompareCStr(ReadOnlySpan<byte> s1, ReadOnlySpan<byte> s2)
         {
             int s1Index = 0;
             int s2Index = 0;
@@ -130,11 +142,11 @@ namespace Ryujinx.HLE.Utilities
             return s2[s2Index] - s1[s1Index];
         }
 
-        public static int LengthCstr(ReadOnlySpan<char> s)
+        public static int LengthCstr(ReadOnlySpan<byte> s)
         {
             int i = 0;
 
-            while (s[i] != '\0')
+            while (s[i] != 0)
             {
                 i++;
             }

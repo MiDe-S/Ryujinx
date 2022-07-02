@@ -7,8 +7,6 @@ using Ryujinx.Memory.Range;
 using Ryujinx.Memory.Tracking;
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Ryujinx.Graphics.Gpu.Memory
@@ -19,8 +17,6 @@ namespace Ryujinx.Graphics.Gpu.Memory
     /// </summary>
     class PhysicalMemory : IDisposable
     {
-        public const int PageSize = 0x1000;
-
         private readonly GpuContext _context;
         private IVirtualMemoryManagerTracked _cpuMemory;
         private int _referenceCount;
@@ -103,24 +99,28 @@ namespace Ryujinx.Graphics.Gpu.Memory
             if (range.Count == 1)
             {
                 var singleRange = range.GetSubRange(0);
-                return _cpuMemory.GetSpan(singleRange.Address, (int)singleRange.Size, tracked);
-            }
-            else
-            {
-                Span<byte> data = new byte[range.GetSize()];
-
-                int offset = 0;
-
-                for (int i = 0; i < range.Count; i++)
+                if (singleRange.Address != MemoryManager.PteUnmapped)
                 {
-                    var currentRange = range.GetSubRange(i);
-                    int size = (int)currentRange.Size;
-                    _cpuMemory.GetSpan(currentRange.Address, size, tracked).CopyTo(data.Slice(offset, size));
-                    offset += size;
+                    return _cpuMemory.GetSpan(singleRange.Address, (int)singleRange.Size, tracked);
                 }
-
-                return data;
             }
+
+            Span<byte> data = new byte[range.GetSize()];
+
+            int offset = 0;
+
+            for (int i = 0; i < range.Count; i++)
+            {
+                var currentRange = range.GetSubRange(i);
+                int size = (int)currentRange.Size;
+                if (currentRange.Address != MemoryManager.PteUnmapped)
+                {
+                    _cpuMemory.GetSpan(currentRange.Address, size, tracked).CopyTo(data.Slice(offset, size));
+                }
+                offset += size;
+            }
+
+            return data;
         }
 
         /// <summary>
@@ -133,6 +133,40 @@ namespace Ryujinx.Graphics.Gpu.Memory
         public WritableRegion GetWritableRegion(ulong address, int size, bool tracked = false)
         {
             return _cpuMemory.GetWritableRegion(address, size, tracked);
+        }
+
+        /// <summary>
+        /// Gets a writable region from GPU mapped memory.
+        /// </summary>
+        /// <param name="range">Range</param>
+        /// <param name="tracked">True if write tracking is triggered on the span</param>
+        /// <returns>A writable region with the data at the specified memory location</returns>
+        public WritableRegion GetWritableRegion(MultiRange range, bool tracked = false)
+        {
+            if (range.Count == 1)
+            {
+                MemoryRange subrange = range.GetSubRange(0);
+
+                return GetWritableRegion(subrange.Address, (int)subrange.Size, tracked);
+            }
+            else
+            {
+                Memory<byte> memory = new byte[range.GetSize()];
+
+                int offset = 0;
+                for (int i = 0; i < range.Count; i++)
+                {
+                    var currentRange = range.GetSubRange(i);
+                    int size = (int)currentRange.Size;
+                    if (currentRange.Address != MemoryManager.PteUnmapped)
+                    {
+                        GetSpan(currentRange.Address, size).CopyTo(memory.Span.Slice(offset, size));
+                    }
+                    offset += size;
+                }
+
+                return new WritableRegion(new MultiRangeWritableBlock(range, this), 0, memory, tracked);
+            }
         }
 
         /// <summary>
@@ -221,7 +255,10 @@ namespace Ryujinx.Graphics.Gpu.Memory
             if (range.Count == 1)
             {
                 var singleRange = range.GetSubRange(0);
-                writeCallback(singleRange.Address, data);
+                if (singleRange.Address != MemoryManager.PteUnmapped)
+                {
+                    writeCallback(singleRange.Address, data);
+                }
             }
             else
             {
@@ -231,7 +268,10 @@ namespace Ryujinx.Graphics.Gpu.Memory
                 {
                     var currentRange = range.GetSubRange(i);
                     int size = (int)currentRange.Size;
-                    writeCallback(currentRange.Address, data.Slice(offset, size));
+                    if (currentRange.Address != MemoryManager.PteUnmapped)
+                    {
+                        writeCallback(currentRange.Address, data.Slice(offset, size));
+                    }
                     offset += size;
                 }
             }
@@ -256,11 +296,20 @@ namespace Ryujinx.Graphics.Gpu.Memory
         public GpuRegionHandle BeginTracking(MultiRange range)
         {
             var cpuRegionHandles = new CpuRegionHandle[range.Count];
+            int count = 0;
 
             for (int i = 0; i < range.Count; i++)
             {
                 var currentRange = range.GetSubRange(i);
-                cpuRegionHandles[i] = _cpuMemory.BeginTracking(currentRange.Address, currentRange.Size);
+                if (currentRange.Address != MemoryManager.PteUnmapped)
+                {
+                    cpuRegionHandles[count++] = _cpuMemory.BeginTracking(currentRange.Address, currentRange.Size);
+                }
+            }
+
+            if (count != range.Count)
+            {
+                Array.Resize(ref cpuRegionHandles, count);
             }
 
             return new GpuRegionHandle(cpuRegionHandles);
@@ -289,6 +338,16 @@ namespace Ryujinx.Graphics.Gpu.Memory
         public CpuSmartMultiRegionHandle BeginSmartGranularTracking(ulong address, ulong size, ulong granularity = 4096)
         {
             return _cpuMemory.BeginSmartGranularTracking(address, size, granularity);
+        }
+
+        /// <summary>
+        /// Checks if a given memory page is mapped.
+        /// </summary>
+        /// <param name="address">CPU virtual address of the page</param>
+        /// <returns>True if mapped, false otherwise</returns>
+        public bool IsMapped(ulong address)
+        {
+            return _cpuMemory.IsMapped(address);
         }
 
         /// <summary>

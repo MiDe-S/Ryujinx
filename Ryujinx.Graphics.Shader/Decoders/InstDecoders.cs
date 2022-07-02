@@ -1960,7 +1960,6 @@ namespace Ryujinx.Graphics.Shader.Decoders
         public int Dest => (int)((_opcode >> 0) & 0xFF);
         public int SrcA => (int)((_opcode >> 8) & 0xFF);
         public int Imm32 => (int)(_opcode >> 20);
-        public int SrcC => (int)((_opcode >> 39) & 0xFF);
         public int Pred => (int)((_opcode >> 16) & 0x7);
         public bool PredInv => (_opcode & 0x80000) != 0;
         public bool NegC => (_opcode & 0x200000000000000) != 0;
@@ -2460,7 +2459,6 @@ namespace Ryujinx.Graphics.Shader.Decoders
         public int Dest => (int)((_opcode >> 0) & 0xFF);
         public int SrcA => (int)((_opcode >> 8) & 0xFF);
         public int Imm => (int)(_opcode >> 20);
-        public int SrcC => (int)((_opcode >> 39) & 0xFF);
         public HalfSwizzle ASwizzle => (HalfSwizzle)((_opcode >> 47) & 0x3);
         public int Pred => (int)((_opcode >> 16) & 0x7);
         public bool PredInv => (_opcode & 0x80000) != 0;
@@ -5146,6 +5144,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
         public int SrcC => (int)((_opcode >> 39) & 0xFF);
         public int Pred => (int)((_opcode >> 16) & 0x7);
         public bool PredInv => (_opcode & 0x80000) != 0;
+        public int Imm16 => (int)((_opcode >> 20) & 0xFFFF);
         public bool WriteCC => (_opcode & 0x800000000000) != 0;
         public AvgMode AvgMode => (AvgMode)((_opcode >> 56) & 0x3);
         public bool DFormat => (_opcode & 0x40000000000000) != 0;
@@ -5166,6 +5165,7 @@ namespace Ryujinx.Graphics.Shader.Decoders
         public int SrcC => (int)((_opcode >> 39) & 0xFF);
         public int Pred => (int)((_opcode >> 16) & 0x7);
         public bool PredInv => (_opcode & 0x80000) != 0;
+        public int Imm16 => (int)((_opcode >> 20) & 0xFFFF);
         public bool WriteCC => (_opcode & 0x800000000000) != 0;
         public VectorSelect ASelect => (VectorSelect)((int)((_opcode >> 45) & 0x8) | (int)((_opcode >> 36) & 0x7));
         public VectorSelect BSelect => (VectorSelect)((int)((_opcode >> 46) & 0x8) | (int)((_opcode >> 28) & 0x7));

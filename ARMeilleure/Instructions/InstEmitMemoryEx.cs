@@ -130,11 +130,6 @@ namespace ARMeilleure.Instructions
             bool ordered   = (accType & AccessType.Ordered)   != 0;
             bool exclusive = (accType & AccessType.Exclusive) != 0;
 
-            if (ordered)
-            {
-                EmitBarrier(context);
-            }
-
             Operand address = context.Copy(GetIntOrSP(context, op.Rn));
 
             Operand t = GetIntOrZR(context, op.Rt);
@@ -163,13 +158,16 @@ namespace ARMeilleure.Instructions
             {
                 EmitStoreExclusive(context, address, t, exclusive, op.Size, op.Rs, a32: false);
             }
+
+            if (ordered)
+            {
+                EmitBarrier(context);
+            }
         }
 
         private static void EmitBarrier(ArmEmitterContext context)
         {
-            // Note: This barrier is most likely not necessary, and probably
-            // doesn't make any difference since we need to do a ton of stuff
-            // (software MMU emulation) to read or write anything anyway.
+            context.MemoryBarrier();
         }
     }
 }

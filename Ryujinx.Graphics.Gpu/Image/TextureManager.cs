@@ -1,5 +1,6 @@
 ﻿using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu.Engine.Types;
+using Ryujinx.Graphics.Gpu.Shader;
 using System;
 
 namespace Ryujinx.Graphics.Gpu.Image
@@ -10,14 +11,19 @@ namespace Ryujinx.Graphics.Gpu.Image
     class TextureManager : IDisposable
     {
         private readonly GpuContext _context;
+        private readonly GpuChannel _channel;
 
         private readonly TextureBindingsManager _cpBindingsManager;
         private readonly TextureBindingsManager _gpBindingsManager;
+        private readonly TexturePoolCache _texturePoolCache;
 
         private readonly Texture[] _rtColors;
         private readonly ITexture[] _rtHostColors;
         private Texture _rtDepthStencil;
         private ITexture _rtHostDs;
+
+        public int ClipRegionWidth { get; private set; }
+        public int ClipRegionHeight { get; private set; }
 
         /// <summary>
         /// The scaling factor applied to all currently bound render targets.
@@ -32,6 +38,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         public TextureManager(GpuContext context, GpuChannel channel)
         {
             _context = context;
+            _channel = channel;
 
             TexturePoolCache texturePoolCache = new TexturePoolCache(context);
 
@@ -40,6 +47,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             _cpBindingsManager = new TextureBindingsManager(context, channel, texturePoolCache, scales, isCompute: true);
             _gpBindingsManager = new TextureBindingsManager(context, channel, texturePoolCache, scales, isCompute: false);
+            _texturePoolCache = texturePoolCache;
 
             _rtColors = new Texture[Constants.TotalRenderTargets];
             _rtHostColors = new ITexture[Constants.TotalRenderTargets];
@@ -97,12 +105,32 @@ namespace Ryujinx.Graphics.Gpu.Image
         }
 
         /// <summary>
+        /// Sets the max binding indexes on the compute pipeline.
+        /// </summary>
+        /// <param name="maxTextureBinding">The maximum texture binding</param>
+        /// <param name="maxImageBinding">The maximum image binding</param>
+        public void SetComputeMaxBindings(int maxTextureBinding, int maxImageBinding)
+        {
+            _cpBindingsManager.SetMaxBindings(maxTextureBinding, maxImageBinding);
+        }
+
+        /// <summary>
         /// Sets the texture constant buffer index on the graphics pipeline.
         /// </summary>
         /// <param name="index">The texture constant buffer index</param>
         public void SetGraphicsTextureBufferIndex(int index)
         {
             _gpBindingsManager.SetTextureBufferIndex(index);
+        }
+
+        /// <summary>
+        /// Sets the max binding indexes on the graphics pipeline.
+        /// </summary>
+        /// <param name="maxTextureBinding">The maximum texture binding</param>
+        /// <param name="maxImageBinding">The maximum image binding</param>
+        public void SetGraphicsMaxBindings(int maxTextureBinding, int maxImageBinding)
+        {
+            _gpBindingsManager.SetMaxBindings(maxTextureBinding, maxImageBinding);
         }
 
         /// <summary>
@@ -208,6 +236,17 @@ namespace Ryujinx.Graphics.Gpu.Image
             }
 
             return changesScale || ScaleNeedsUpdated(depthStencil);
+        }
+
+        /// <summary>
+        /// Sets the host clip region, which should be the intersection of all render target texture sizes.
+        /// </summary>
+        /// <param name="width">Width of the clip region, defined as the minimum width across all bound textures</param>
+        /// <param name="height">Height of the clip region, defined as the minimum height across all bound textures</param>
+        public void SetClipRegion(int width, int height)
+        {
+            ClipRegionWidth = width;
+            ClipRegionHeight = height;
         }
 
         /// <summary>
@@ -321,25 +360,48 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <summary>
         /// Commits bindings on the compute pipeline.
         /// </summary>
-        public void CommitComputeBindings()
+        /// <param name="specState">Specialization state for the bound shader</param>
+        /// <returns>True if all bound textures match the current shader specialization state, false otherwise</returns>
+        public bool CommitComputeBindings(ShaderSpecializationState specState)
         {
             // Every time we switch between graphics and compute work,
             // we must rebind everything.
             // Since compute work happens less often, we always do that
             // before and after the compute dispatch.
             _cpBindingsManager.Rebind();
-            _cpBindingsManager.CommitBindings();
+            bool result = _cpBindingsManager.CommitBindings(specState);
             _gpBindingsManager.Rebind();
+
+            return result;
         }
 
         /// <summary>
         /// Commits bindings on the graphics pipeline.
         /// </summary>
-        public void CommitGraphicsBindings()
+        /// <param name="specState">Specialization state for the bound shader</param>
+        /// <returns>True if all bound textures match the current shader specialization state, false otherwise</returns>
+        public bool CommitGraphicsBindings(ShaderSpecializationState specState)
         {
-            _gpBindingsManager.CommitBindings();
+            bool result = _gpBindingsManager.CommitBindings(specState);
 
             UpdateRenderTargets();
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns a texture pool from the cache, with the given address and maximum id.
+        /// </summary>
+        /// <param name="poolGpuVa">GPU virtual address of the texture pool</param>
+        /// <param name="maximumId">Maximum ID of the texture pool</param>
+        /// <returns>The texture pool</returns>
+        public TexturePool GetTexturePool(ulong poolGpuVa, int maximumId)
+        {
+            ulong poolAddress = _channel.MemoryManager.Translate(poolGpuVa);
+
+            TexturePool texturePool = _texturePoolCache.FindOrCreate(_channel, poolAddress, maximumId);
+
+            return texturePool;
         }
 
         /// <summary>
@@ -407,6 +469,36 @@ namespace Ryujinx.Graphics.Gpu.Image
             {
                 _context.Renderer.Pipeline.SetRenderTargets(_rtHostColors, _rtHostDs);
             }
+        }
+
+        /// <summary>
+        /// Update host framebuffer attachments based on currently bound render target buffers.
+        /// </summary>
+        /// <remarks>
+        /// All attachments other than <paramref name="index"/> will be unbound.
+        /// </remarks>
+        /// <param name="index">Index of the render target color to be updated</param>
+        public void UpdateRenderTarget(int index)
+        {
+            new Span<ITexture>(_rtHostColors).Fill(null);
+            _rtHostColors[index] = _rtColors[index]?.HostTexture;
+            _rtHostDs = null;
+
+            _context.Renderer.Pipeline.SetRenderTargets(_rtHostColors, null);
+        }
+
+        /// <summary>
+        /// Update host framebuffer attachments based on currently bound render target buffers.
+        /// </summary>
+        /// <remarks>
+        /// All color attachments will be unbound.
+        /// </remarks>
+        public void UpdateRenderTargetDepthStencil()
+        {
+            new Span<ITexture>(_rtHostColors).Fill(null);
+            _rtHostDs = _rtDepthStencil?.HostTexture;
+
+            _context.Renderer.Pipeline.SetRenderTargets(_rtHostColors, _rtHostDs);
         }
 
         /// <summary>

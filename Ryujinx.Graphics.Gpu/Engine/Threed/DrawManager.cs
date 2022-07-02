@@ -1,5 +1,6 @@
 ﻿using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu.Engine.Types;
+using System;
 using System.Text;
 
 namespace Ryujinx.Graphics.Gpu.Engine.Threed
@@ -17,6 +18,7 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
 
         private bool _instancedDrawPending;
         private bool _instancedIndexed;
+        private bool _instancedIndexedInline;
 
         private int _instancedFirstIndex;
         private int _instancedFirstVertex;
@@ -133,13 +135,16 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             {
                 _instancedDrawPending = true;
 
+                int ibCount = _drawState.IbStreamer.InlineIndexCount;
+
                 _instancedIndexed = _drawState.DrawIndexed;
+                _instancedIndexedInline = ibCount != 0;
 
                 _instancedFirstIndex = firstIndex;
                 _instancedFirstVertex = (int)_state.State.FirstVertex;
                 _instancedFirstInstance = (int)_state.State.FirstInstance;
 
-                _instancedIndexCount = indexCount;
+                _instancedIndexCount = ibCount != 0 ? ibCount : indexCount;
 
                 var drawState = _state.State.VertexBufferDrawState;
 
@@ -450,8 +455,18 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             {
                 _instancedDrawPending = false;
 
-                if (_instancedIndexed)
+                bool indexedInline = _instancedIndexedInline;
+
+                if (_instancedIndexed || indexedInline)
                 {
+                    if (indexedInline)
+                    {
+                        int inlineIndexCount = _drawState.IbStreamer.GetAndResetInlineIndexCount();
+                        BufferRange br = new BufferRange(_drawState.IbStreamer.GetInlineIndexBuffer(), 0, inlineIndexCount * 4);
+
+                        _channel.BufferManager.SetIndexBuffer(br, IndexType.UInt);
+                    }
+
                     _context.Renderer.Pipeline.DrawIndexed(
                         _instancedIndexCount,
                         _instanceIndex + 1,
@@ -489,14 +504,72 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 return;
             }
 
-            // Scissor and rasterizer discard also affect clears.
-            engine.UpdateState((1UL << StateUpdater.RasterizerStateIndex) | (1UL << StateUpdater.ScissorStateIndex));
-
             int index = (argument >> 6) & 0xf;
+            int layer = (argument >> 10) & 0x3ff;
 
-            engine.UpdateRenderTargetState(useControl: false, singleUse: index);
+            engine.UpdateRenderTargetState(useControl: false, layered: layer != 0, singleUse: index);
 
-            _channel.TextureManager.UpdateRenderTargets();
+            // If there is a mismatch on the host clip region and the one explicitly defined by the guest
+            // on the screen scissor state, then we need to force only one texture to be bound to avoid
+            // host clipping.
+            var screenScissorState = _state.State.ScreenScissorState;
+
+            // Must happen after UpdateRenderTargetState to have up-to-date clip region values.
+            bool clipMismatch = (screenScissorState.X | screenScissorState.Y) != 0 ||
+                                screenScissorState.Width != _channel.TextureManager.ClipRegionWidth ||
+                                screenScissorState.Height != _channel.TextureManager.ClipRegionHeight;
+
+            bool clearAffectedByStencilMask = (_state.State.ClearFlags & 1) != 0;
+            bool clearAffectedByScissor = (_state.State.ClearFlags & 0x100) != 0;
+            bool needsCustomScissor = !clearAffectedByScissor || clipMismatch;
+
+            // Scissor and rasterizer discard also affect clears.
+            ulong updateMask = 1UL << StateUpdater.RasterizerStateIndex;
+
+            if (!needsCustomScissor)
+            {
+                updateMask |= 1UL << StateUpdater.ScissorStateIndex;
+            }
+
+            engine.UpdateState(updateMask);
+
+            if (needsCustomScissor)
+            {
+                int scissorX = screenScissorState.X;
+                int scissorY = screenScissorState.Y;
+                int scissorW = screenScissorState.Width;
+                int scissorH = screenScissorState.Height;
+
+                if (clearAffectedByScissor && _state.State.ScissorState[0].Enable)
+                {
+                    ref var scissorState = ref _state.State.ScissorState[0];
+
+                    scissorX = Math.Max(scissorX, scissorState.X1);
+                    scissorY = Math.Max(scissorY, scissorState.Y1);
+                    scissorW = Math.Min(scissorW, scissorState.X2 - scissorState.X1);
+                    scissorH = Math.Min(scissorH, scissorState.Y2 - scissorState.Y1);
+                }
+
+                float scale = _channel.TextureManager.RenderTargetScale;
+                if (scale != 1f)
+                {
+                    scissorX = (int)(scissorX * scale);
+                    scissorY = (int)(scissorY * scale);
+                    scissorW = (int)MathF.Ceiling(scissorW * scale);
+                    scissorH = (int)MathF.Ceiling(scissorH * scale);
+                }
+
+                _context.Renderer.Pipeline.SetScissor(0, true, scissorX, scissorY, scissorW, scissorH);
+            }
+
+            if (clipMismatch)
+            {
+                _channel.TextureManager.UpdateRenderTarget(index);
+            }
+            else
+            {
+                _channel.TextureManager.UpdateRenderTargets();
+            }
 
             bool clearDepth = (argument & 1) != 0;
             bool clearStencil = (argument & 2) != 0;
@@ -509,7 +582,7 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
 
                 ColorF color = new ColorF(clearColor.Red, clearColor.Green, clearColor.Blue, clearColor.Alpha);
 
-                _context.Renderer.Pipeline.ClearRenderTargetColor(index, componentMask, color);
+                _context.Renderer.Pipeline.ClearRenderTargetColor(index, layer, componentMask, color);
             }
 
             if (clearDepth || clearStencil)
@@ -521,14 +594,25 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
 
                 if (clearStencil)
                 {
-                    stencilMask = _state.State.StencilTestState.FrontMask;
+                    stencilMask = clearAffectedByStencilMask ? _state.State.StencilTestState.FrontMask : 0xff;
+                }
+
+                if (clipMismatch)
+                {
+                    _channel.TextureManager.UpdateRenderTargetDepthStencil();
                 }
 
                 _context.Renderer.Pipeline.ClearRenderTargetDepthStencil(
+                    layer,
                     depthValue,
                     clearDepth,
                     stencilValue,
                     stencilMask);
+            }
+
+            if (needsCustomScissor)
+            {
+                engine.UpdateScissorState();
             }
 
             engine.UpdateRenderTargetState(useControl: true);

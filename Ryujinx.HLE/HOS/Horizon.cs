@@ -1,14 +1,18 @@
+using LibHac.Common;
 using LibHac.Common.Keys;
 using LibHac.Fs;
 using LibHac.Fs.Shim;
 using LibHac.FsSystem;
+using LibHac.Tools.FsSystem;
 using Ryujinx.Audio;
 using Ryujinx.Audio.Input;
 using Ryujinx.Audio.Integration;
 using Ryujinx.Audio.Output;
 using Ryujinx.Audio.Renderer.Device;
 using Ryujinx.Audio.Renderer.Server;
-using Ryujinx.HLE.FileSystem.Content;
+using Ryujinx.Cpu;
+using Ryujinx.Cpu.Jit;
+using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.HOS.Kernel;
 using Ryujinx.HLE.HOS.Kernel.Memory;
 using Ryujinx.HLE.HOS.Kernel.Process;
@@ -56,6 +60,9 @@ namespace Ryujinx.HLE.HOS
 
         internal Switch Device { get; private set; }
 
+        internal ITickSource TickSource { get; }
+        internal ICpuEngine CpuEngine { get; }
+
         internal SurfaceFlinger SurfaceFlinger { get; private set; }
         internal AudioManager AudioManager { get; private set; }
         internal AudioOutputManager AudioOutputManager { get; private set; }
@@ -71,10 +78,13 @@ namespace Ryujinx.HLE.HOS
 
         internal List<NfpDevice> NfpDevices { get; private set; }
 
+        internal SmRegistry SmRegistry { get; private set; }
+
         internal ServerBase SmServer { get; private set; }
         internal ServerBase BsdServer { get; private set; }
         internal ServerBase AudRenServer { get; private set; }
         internal ServerBase AudOutServer { get; private set; }
+        internal ServerBase FsServer { get; private set; }
         internal ServerBase HidServer { get; private set; }
         internal ServerBase NvDrvServer { get; private set; }
         internal ServerBase TimeServer { get; private set; }
@@ -117,7 +127,11 @@ namespace Ryujinx.HLE.HOS
 
         public Horizon(Switch device)
         {
+            TickSource = new TickSource(KernelConstants.CounterFrequency);
+            CpuEngine = new JitEngine(TickSource);
+
             KernelContext = new KernelContext(
+                TickSource,
                 device,
                 device.Memory,
                 device.Configuration.MemoryConfiguration.ToKernelMemorySize(),
@@ -211,39 +225,41 @@ namespace Ryujinx.HLE.HOS
             internalOffset = new TimeSpanType(-internalOffset.NanoSeconds);
 
             // First init the standard steady clock
-            TimeServiceManager.Instance.SetupStandardSteadyClock(null, clockSourceId, systemTime, internalOffset, TimeSpanType.Zero, false);
-            TimeServiceManager.Instance.SetupStandardLocalSystemClock(null, new SystemClockContext(), systemTime.ToSeconds());
+            TimeServiceManager.Instance.SetupStandardSteadyClock(TickSource, clockSourceId, systemTime, internalOffset, TimeSpanType.Zero, false);
+            TimeServiceManager.Instance.SetupStandardLocalSystemClock(TickSource, new SystemClockContext(), systemTime.ToSeconds());
 
             if (NxSettings.Settings.TryGetValue("time!standard_network_clock_sufficient_accuracy_minutes", out object standardNetworkClockSufficientAccuracyMinutes))
             {
                 TimeSpanType standardNetworkClockSufficientAccuracy = new TimeSpanType((int)standardNetworkClockSufficientAccuracyMinutes * 60000000000);
 
                 // The network system clock needs a valid system clock, as such we setup this system clock using the local system clock.
-                TimeServiceManager.Instance.StandardLocalSystemClock.GetClockContext(null, out SystemClockContext localSytemClockContext);
+                TimeServiceManager.Instance.StandardLocalSystemClock.GetClockContext(TickSource, out SystemClockContext localSytemClockContext);
                 TimeServiceManager.Instance.SetupStandardNetworkSystemClock(localSytemClockContext, standardNetworkClockSufficientAccuracy);
             }
 
-            TimeServiceManager.Instance.SetupStandardUserSystemClock(null, false, SteadyClockTimePoint.GetRandom());
+            TimeServiceManager.Instance.SetupStandardUserSystemClock(TickSource, false, SteadyClockTimePoint.GetRandom());
 
             // FIXME: TimeZone should be init here but it's actually done in ContentManager
 
             TimeServiceManager.Instance.SetupEphemeralNetworkSystemClock();
 
-            DatabaseImpl.Instance.InitializeDatabase(LibHacHorizonManager.SdbClient);
+            DatabaseImpl.Instance.InitializeDatabase(TickSource, LibHacHorizonManager.SdbClient);
 
             HostSyncpoint = new NvHostSyncpt(device);
 
             SurfaceFlinger = new SurfaceFlinger(device);
 
-            InitializeAudioRenderer();
+            InitializeAudioRenderer(TickSource);
+            InitializeServices();
         }
 
-        private void InitializeAudioRenderer()
+        private void InitializeAudioRenderer(ITickSource tickSource)
         {
             AudioManager = new AudioManager();
             AudioOutputManager = new AudioOutputManager();
             AudioInputManager = new AudioInputManager();
-            AudioRendererManager = new AudioRendererManager();
+            AudioRendererManager = new AudioRendererManager(tickSource);
+            AudioRendererManager.SetVolume(Device.Configuration.AudioVolume);
             AudioDeviceSessionRegistry = new VirtualDeviceSessionRegistry();
 
             IWritableEvent[] audioOutputRegisterBufferEvents = new IWritableEvent[Constants.AudioOutSessionCountMax];
@@ -256,6 +272,7 @@ namespace Ryujinx.HLE.HOS
             }
 
             AudioOutputManager.Initialize(Device.AudioDeviceDriver, audioOutputRegisterBufferEvents);
+            AudioOutputManager.SetVolume(Device.Configuration.AudioVolume);
 
             IWritableEvent[] audioInputRegisterBufferEvents = new IWritableEvent[Constants.AudioInSessionCountMax];
 
@@ -284,9 +301,10 @@ namespace Ryujinx.HLE.HOS
             AudioManager.Start();
         }
 
-        public void InitializeServices()
+        private void InitializeServices()
         {
-            SmServer = new ServerBase(KernelContext, "SmServer", () => new IUserInterface(KernelContext));
+            SmRegistry = new SmRegistry();
+            SmServer = new ServerBase(KernelContext, "SmServer", () => new IUserInterface(KernelContext, SmRegistry));
 
             // Wait until SM server thread is done with initialization,
             // only then doing connections to SM is safe.
@@ -295,6 +313,7 @@ namespace Ryujinx.HLE.HOS
             BsdServer = new ServerBase(KernelContext, "BsdServer");
             AudRenServer = new ServerBase(KernelContext, "AudioRendererServer");
             AudOutServer = new ServerBase(KernelContext, "AudioOutServer");
+            FsServer = new ServerBase(KernelContext, "FsServer");
             HidServer = new ServerBase(KernelContext, "HidServer");
             NvDrvServer = new ServerBase(KernelContext, "NvservicesServer");
             TimeServer = new ServerBase(KernelContext, "TimeServer");
@@ -305,9 +324,9 @@ namespace Ryujinx.HLE.HOS
 
         public void LoadKip(string kipPath)
         {
-            using IStorage kipFile = new LocalStorage(kipPath, FileAccess.Read);
+            using var kipFile = new SharedRef<IStorage>(new LocalStorage(kipPath, FileAccess.Read));
 
-            ProgramLoader.LoadKip(KernelContext, new KipExecutable(kipFile));
+            ProgramLoader.LoadKip(KernelContext, new KipExecutable(in kipFile));
         }
 
         public void ChangeDockedModeState(bool newState)
@@ -325,6 +344,17 @@ namespace Ryujinx.HLE.HOS
 
                 Device.Configuration.RefreshInputConfig?.Invoke();
             }
+        }
+
+        public void SetVolume(float volume)
+        {
+            AudioOutputManager.SetVolume(volume);
+            AudioRendererManager.SetVolume(volume);
+        }
+
+        public float GetVolume()
+        {
+            return AudioOutputManager.GetVolume() == 0 ? AudioRendererManager.GetVolume() : AudioOutputManager.GetVolume();
         }
 
         public void ReturnFocus()
@@ -450,8 +480,8 @@ namespace Ryujinx.HLE.HOS
 
                 AudioRendererManager.Dispose();
 
-                LibHacHorizonManager.AmClient.Fs.UnregisterProgram(LibHacHorizonManager.ApplicationClient.Os.GetCurrentProcessId().Value);
-                
+                LibHacHorizonManager.PmClient.Fs.UnregisterProgram(LibHacHorizonManager.ApplicationClient.Os.GetCurrentProcessId().Value).ThrowIfFailure();
+
                 KernelContext.Dispose();
             }
         }
@@ -472,12 +502,12 @@ namespace Ryujinx.HLE.HOS
                 if (pause && !IsPaused)
                 {
                     Device.AudioDeviceDriver.GetPauseEvent().Reset();
-                    ARMeilleure.State.ExecutionContext.SuspendCounter();
+                    TickSource.Suspend();
                 }
                 else if (!pause && IsPaused)
                 {
                     Device.AudioDeviceDriver.GetPauseEvent().Set();
-                    ARMeilleure.State.ExecutionContext.ResumeCounter();
+                    TickSource.Resume();
                 }
             }
             IsPaused = pause;

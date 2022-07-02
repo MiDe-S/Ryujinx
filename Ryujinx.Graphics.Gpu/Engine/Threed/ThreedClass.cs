@@ -34,6 +34,8 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 { nameof(ThreedClassState.LaunchDma), new RwCallback(LaunchDma, null) },
                 { nameof(ThreedClassState.LoadInlineData), new RwCallback(LoadInlineData, null) },
                 { nameof(ThreedClassState.SyncpointAction), new RwCallback(IncrementSyncpoint, null) },
+                { nameof(ThreedClassState.InvalidateSamplerCacheNoWfi), new RwCallback(InvalidateSamplerCacheNoWfi, null) },
+                { nameof(ThreedClassState.InvalidateTextureHeaderCacheNoWfi), new RwCallback(InvalidateTextureHeaderCacheNoWfi, null) },
                 { nameof(ThreedClassState.TextureBarrier), new RwCallback(TextureBarrier, null) },
                 { nameof(ThreedClassState.TextureBarrierTiled), new RwCallback(TextureBarrierTiled, null) },
                 { nameof(ThreedClassState.DrawTextureSrcY), new RwCallback(DrawTexture, null) },
@@ -129,10 +131,19 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         /// Updates render targets (color and depth-stencil buffers) based on current render target state.
         /// </summary>
         /// <param name="useControl">Use draw buffers information from render target control register</param>
+        /// <param name="layered">Indicates if the texture is layered</param>
         /// <param name="singleUse">If this is not -1, it indicates that only the given indexed target will be used.</param>
-        public void UpdateRenderTargetState(bool useControl, int singleUse = -1)
+        public void UpdateRenderTargetState(bool useControl, bool layered = false, int singleUse = -1)
         {
-            _stateUpdater.UpdateRenderTargetState(useControl, singleUse);
+            _stateUpdater.UpdateRenderTargetState(useControl, layered, singleUse);
+        }
+
+        /// <summary>
+        /// Updates scissor based on current render target state.
+        /// </summary>
+        public void UpdateScissorState()
+        {
+            _stateUpdater.UpdateScissorState();
         }
 
         /// <summary>
@@ -222,9 +233,27 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             uint syncpointId = (uint)argument & 0xFFFF;
 
             _context.AdvanceSequence();
-            _context.CreateHostSyncIfNeeded();
+            _context.CreateHostSyncIfNeeded(true);
             _context.Renderer.UpdateCounters(); // Poll the query counters, the game may want an updated result.
             _context.Synchronization.IncrementSyncpoint(syncpointId);
+        }
+
+        /// <summary>
+        /// Invalidates the cache with the sampler descriptors from the sampler pool.
+        /// </summary>
+        /// <param name="argument">Method call argument (unused)</param>
+        private void InvalidateSamplerCacheNoWfi(int argument)
+        {
+            _context.AdvanceSequence();
+        }
+
+        /// <summary>
+        /// Invalidates the cache with the texture descriptors from the texture pool.
+        /// </summary>
+        /// <param name="argument">Method call argument (unused)</param>
+        private void InvalidateTextureHeaderCacheNoWfi(int argument)
+        {
+            _context.AdvanceSequence();
         }
 
         /// <summary>

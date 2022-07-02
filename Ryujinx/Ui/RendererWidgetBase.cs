@@ -5,7 +5,7 @@ using Gtk;
 using Ryujinx.Common;
 using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
-using Ryujinx.Configuration;
+using Ryujinx.Ui.Common.Configuration;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.GAL.Multithreading;
 using Ryujinx.Input;
@@ -41,6 +41,8 @@ namespace Ryujinx.Ui
         public IRenderer Renderer { get; private set; }
 
         public bool ScreenshotRequested { get; set; }
+        protected int WindowWidth { get; private set; }
+        protected int WindowHeight { get; private set; }
 
         public static event EventHandler<StatusUpdatedEventArgs> StatusUpdatedEvent;
 
@@ -60,6 +62,8 @@ namespace Ryujinx.Ui
 
         private readonly ManualResetEvent _exitEvent;
 
+        private readonly CancellationTokenSource _gpuCancellationTokenSource;
+
         // Hide Cursor
         const int CursorHideIdleTime = 8; // seconds
         private static readonly Cursor _invisibleCursor = new Cursor(Display.Default, CursorType.BlankCursor);
@@ -69,9 +73,6 @@ namespace Ryujinx.Ui
         private IKeyboard _keyboardInterface;
         private GraphicsDebugLevel _glLogLevel;
         private string _gpuVendorName;
-
-        private int _windowHeight;
-        private int _windowWidth;
         private bool _isMouseInClient;
 
         public RendererWidgetBase(InputManager inputManager, GraphicsDebugLevel glLogLevel)
@@ -105,6 +106,8 @@ namespace Ryujinx.Ui
 
             _exitEvent = new ManualResetEvent(false);
 
+            _gpuCancellationTokenSource = new CancellationTokenSource();
+
             _hideCursorOnIdle = ConfigurationState.Instance.HideCursorOnIdle;
             _lastCursorMoveTime = Stopwatch.GetTimestamp();
 
@@ -113,7 +116,7 @@ namespace Ryujinx.Ui
 
         public abstract void InitializeRenderer();
 
-        public abstract void SwapBuffers();
+        public abstract void SwapBuffers(object image);
 
         public abstract string GetGpuVendorName();
 
@@ -219,10 +222,10 @@ namespace Ryujinx.Ui
 
             Gdk.Monitor monitor = Display.GetMonitorAtWindow(Window);
 
-            _windowWidth = evnt.Width * monitor.ScaleFactor;
-            _windowHeight = evnt.Height * monitor.ScaleFactor;
+            WindowWidth = evnt.Width * monitor.ScaleFactor;
+            WindowHeight = evnt.Height * monitor.ScaleFactor;
 
-            Renderer?.Window.SetSize(_windowWidth, _windowHeight);
+            Renderer?.Window.SetSize(WindowWidth, WindowHeight);
 
             return result;
         }
@@ -303,7 +306,7 @@ namespace Ryujinx.Ui
             }
 
             Renderer = renderer;
-            Renderer?.Window.SetSize(_windowWidth, _windowHeight);
+            Renderer?.Window.SetSize(WindowWidth, WindowHeight);
 
             if (Renderer != null)
             {
@@ -386,7 +389,8 @@ namespace Ryujinx.Ui
 
             Device.Gpu.Renderer.RunLoop(() =>
             {
-                Device.Gpu.InitializeShaderCache();
+                Device.Gpu.SetGpuThread();
+                Device.Gpu.InitializeShaderCache(_gpuCancellationTokenSource.Token);
                 Translator.IsReadyForTranslation.Set();
 
                 (Toplevel as MainWindow)?.ActivatePauseMenu();
@@ -411,7 +415,7 @@ namespace Ryujinx.Ui
 
                     while (Device.ConsumeFrameAvailable())
                     {
-                        Device.PresentFrame(SwapBuffers);
+                        Device.PresentFrame((texture) => { SwapBuffers(texture);});
                     }
 
                     if (_ticks >= _ticksPerFrame)
@@ -425,6 +429,7 @@ namespace Ryujinx.Ui
 
                         StatusUpdatedEvent?.Invoke(this, new StatusUpdatedEventArgs(
                             Device.EnableDeviceVsync,
+                            Device.GetVolume(),
                             dockedMode,
                             ConfigurationState.Instance.Graphics.AspectRatio.Value.ToText(),
                             $"Game: {Device.Statistics.GetGameFrameRate():00.00} FPS ({Device.Statistics.GetGameFrameTime():00.00} ms)",
@@ -496,6 +501,8 @@ namespace Ryujinx.Ui
             {
                 return;
             }
+
+            _gpuCancellationTokenSource.Cancel();
 
             _isStopped = true;
             _isActive = false;
@@ -598,6 +605,19 @@ namespace Ryujinx.Ui
                     (Toplevel as MainWindow)?.TogglePause();
                 }
 
+                if (currentHotkeyState.HasFlag(KeyboardHotkeyState.ToggleMute) &&
+                    !_prevHotkeyState.HasFlag(KeyboardHotkeyState.ToggleMute))
+                {
+                    if (Device.IsAudioMuted())
+                    {
+                        Device.SetVolume(ConfigurationState.Instance.System.AudioVolume);
+                    }
+                    else
+                    {
+                        Device.SetVolume(0);
+                    }
+                }
+
                 _prevHotkeyState = currentHotkeyState;
             }
 
@@ -627,7 +647,8 @@ namespace Ryujinx.Ui
             ToggleVSync = 1 << 0,
             Screenshot = 1 << 1,
             ShowUi = 1 << 2,
-            Pause = 1 << 3
+            Pause = 1 << 3,
+            ToggleMute = 1 << 4
         }
 
         private KeyboardHotkeyState GetHotkeyState()
@@ -652,6 +673,11 @@ namespace Ryujinx.Ui
             if (_keyboardInterface.IsPressed((Key)ConfigurationState.Instance.Hid.Hotkeys.Value.Pause))
             {
                 state |= KeyboardHotkeyState.Pause;
+            }
+
+            if (_keyboardInterface.IsPressed((Key)ConfigurationState.Instance.Hid.Hotkeys.Value.ToggleMute))
+            {
+                state |= KeyboardHotkeyState.ToggleMute;
             }
 
             return state;

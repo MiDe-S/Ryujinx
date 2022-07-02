@@ -1,10 +1,10 @@
+using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Ipc;
 using Ryujinx.HLE.HOS.Kernel;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Ipc;
 using Ryujinx.HLE.HOS.Kernel.Process;
 using Ryujinx.HLE.HOS.Kernel.Threading;
-using Ryujinx.HLE.HOS.Services.Sm;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -39,15 +39,15 @@ namespace Ryujinx.HLE.HOS.Services
         private readonly Dictionary<int, Func<IpcService>> _ports = new Dictionary<int, Func<IpcService>>();
 
         public ManualResetEvent InitDone { get; }
-        public Func<IpcService> SmObjectFactory { get; }
         public string Name { get; }
+        public Func<IpcService> SmObjectFactory { get; }
 
         public ServerBase(KernelContext context, string name, Func<IpcService> smObjectFactory = null)
         {
             InitDone = new ManualResetEvent(false);
+            _context = context;
             Name = name;
             SmObjectFactory = smObjectFactory;
-            _context = context;
 
             const ProcessCreationFlags flags =
                 ProcessCreationFlags.EnableAslr |
@@ -57,7 +57,7 @@ namespace Ryujinx.HLE.HOS.Services
 
             ProcessCreationInfo creationInfo = new ProcessCreationInfo("Service", 1, 0, 0x8000000, 1, flags, 0, 0);
 
-            KernelStatic.StartInitialProcess(context, creationInfo, DefaultCapabilities, 44, ServerLoop);
+            KernelStatic.StartInitialProcess(context, creationInfo, DefaultCapabilities, 44, Main);
         }
 
         private void AddPort(int serverPortHandle, Func<IpcService> objectFactory)
@@ -81,13 +81,18 @@ namespace Ryujinx.HLE.HOS.Services
             _sessions.Add(serverSessionHandle, obj);
         }
 
+        private void Main()
+        {
+            ServerLoop();
+        }
+
         private void ServerLoop()
         {
             _selfProcess = KernelStatic.GetCurrentProcess();
 
             if (SmObjectFactory != null)
             {
-                _context.Syscall.ManageNamedPort("sm:", 50, out int serverPortHandle);
+                _context.Syscall.ManageNamedPort(out int serverPortHandle, "sm:", 50);
 
                 AddPort(serverPortHandle, SmObjectFactory);
             }
@@ -96,7 +101,7 @@ namespace Ryujinx.HLE.HOS.Services
 
             KThread thread = KernelStatic.GetCurrentThread();
             ulong messagePtr = thread.TlsAddress;
-            _context.Syscall.SetHeapSize(0x200000, out ulong heapAddr);
+            _context.Syscall.SetHeapSize(out ulong heapAddr, 0x200000);
 
             _selfProcess.CpuMemory.Write(messagePtr + 0x0, 0);
             _selfProcess.CpuMemory.Write(messagePtr + 0x4, 2 << 10);
@@ -114,7 +119,7 @@ namespace Ryujinx.HLE.HOS.Services
                 sessionHandles.CopyTo(handles, portHandles.Length);
 
                 // We still need a timeout here to allow the service to pick up and listen new sessions...
-                var rc = _context.Syscall.ReplyAndReceive(handles, replyTargetHandle, 1000000L, out int signaledIndex);
+                var rc = _context.Syscall.ReplyAndReceive(out int signaledIndex, handles, replyTargetHandle, 1000000L);
 
                 thread.HandlePostSyscall();
 
@@ -140,7 +145,7 @@ namespace Ryujinx.HLE.HOS.Services
                     if (rc == KernelResult.Success)
                     {
                         // We got a new connection, accept the session to allow servicing future requests.
-                        if (_context.Syscall.AcceptSession(handles[signaledIndex], out int serverSessionHandle) == KernelResult.Success)
+                        if (_context.Syscall.AcceptSession(out int serverSessionHandle, handles[signaledIndex]) == KernelResult.Success)
                         {
                             IpcService obj = _ports[handles[signaledIndex]].Invoke();
 
@@ -185,7 +190,7 @@ namespace Ryujinx.HLE.HOS.Services
             {
                 for (int i = 0; i < request.RecvListBuff.Count; i++)
                 {
-                    ulong size = (ulong)BinaryPrimitives.ReadInt16LittleEndian(request.RawData.AsSpan().Slice(sizesOffset + i * 2, 2));
+                    ulong size = (ulong)BinaryPrimitives.ReadInt16LittleEndian(request.RawData.AsSpan(sizesOffset + i * 2, 2));
 
                     response.PtrBuff.Add(new IpcPtrBuffDesc(tempAddr, (uint)i, size));
 
@@ -247,7 +252,7 @@ namespace Ryujinx.HLE.HOS.Services
                         case 4:
                             int unknown = reqReader.ReadInt32();
 
-                            _context.Syscall.CreateSession(false, 0, out int dupServerSessionHandle, out int dupClientSessionHandle);
+                            _context.Syscall.CreateSession(out int dupServerSessionHandle, out int dupClientSessionHandle, false, 0);
 
                             AddSessionObj(dupServerSessionHandle, _sessions[serverSessionHandle]);
 

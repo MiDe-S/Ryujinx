@@ -9,7 +9,9 @@ namespace Ryujinx.Ui.Widgets
         private MenuItem _openSaveBcatDirMenuItem;
         private MenuItem _manageTitleUpdatesMenuItem;
         private MenuItem _manageDlcMenuItem;
+        private MenuItem _manageCheatMenuItem;
         private MenuItem _openTitleModDirMenuItem;
+        private MenuItem _openTitleSdModDirMenuItem;
         private Menu     _extractSubMenu;
         private MenuItem _extractMenuItem;
         private MenuItem _extractRomFsMenuItem;
@@ -70,6 +72,15 @@ namespace Ryujinx.Ui.Widgets
             _manageDlcMenuItem.Activated += ManageDlc_Clicked;
 
             //
+            // _manageCheatMenuItem
+            //
+            _manageCheatMenuItem = new MenuItem("Manage Cheats")
+            {
+                TooltipText = "Open the Cheat management window"
+            };
+            _manageCheatMenuItem.Activated += ManageCheats_Clicked;
+
+            //
             // _openTitleModDirMenuItem
             //
             _openTitleModDirMenuItem = new MenuItem("Open Mods Directory")
@@ -77,6 +88,15 @@ namespace Ryujinx.Ui.Widgets
                 TooltipText = "Open the directory which contains Application's Mods."
             };
             _openTitleModDirMenuItem.Activated += OpenTitleModDir_Clicked;
+
+            //
+            // _openTitleSdModDirMenuItem
+            //
+            _openTitleSdModDirMenuItem = new MenuItem("Open Atmosphere Mods Directory")
+            {
+                TooltipText = "Open the alternative SD card atmosphere directory which contains the Application's Mods."
+            };
+            _openTitleSdModDirMenuItem.Activated += OpenTitleSdModDir_Clicked;
 
             //
             // _extractSubMenu
@@ -187,7 +207,9 @@ namespace Ryujinx.Ui.Widgets
             Add(new SeparatorMenuItem());
             Add(_manageTitleUpdatesMenuItem);
             Add(_manageDlcMenuItem);
+            Add(_manageCheatMenuItem);
             Add(_openTitleModDirMenuItem);
+            Add(_openTitleSdModDirMenuItem);
             Add(new SeparatorMenuItem());
             Add(_manageCacheMenuItem);
             Add(_extractMenuItem);

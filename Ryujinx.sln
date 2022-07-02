@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29613.14
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32228.430
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{36F870C1-3E5F-485F-B426-F0645AF78751}"
 	ProjectSection(SolutionItems) = preProject
@@ -37,6 +37,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Graphics.Nvdec", "R
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Audio", "Ryujinx.Audio\Ryujinx.Audio.csproj", "{806ACF6D-90B0-45D0-A1AC-5F220F3B3985}"
 EndProject
+
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{36F870C1-3E5F-485F-B426-F0645AF78751}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Memory", "Ryujinx.Memory\Ryujinx.Memory.csproj", "{A5E6C691-9E22-4263-8F40-42F002CE66BE}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Memory.Tests", "Ryujinx.Memory.Tests\Ryujinx.Memory.Tests.csproj", "{D1CC5322-7325-4F6B-9625-194B30BE1296}"
@@ -70,6 +76,12 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Graphics.Nvdec.FFmpeg", "Ryujinx.Graphics.Nvdec.FFmpeg\Ryujinx.Graphics.Nvdec.FFmpeg.csproj", "{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "libamiibo", "libamiibo\libamiibo.csproj", "{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Ava", "Ryujinx.Ava\Ryujinx.Ava.csproj", "{7C1B2721-13DA-4B62-B046-C626605ECCE6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Ryujinx.Ui.Common", "Ryujinx.Ui.Common\Ryujinx.Ui.Common.csproj", "{BA161CA0-CD65-4E6E-B644-51C8D1E542DC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ryujinx.Horizon.Generators", "Ryujinx.Horizon.Generators\Ryujinx.Horizon.Generators.csproj", "{6AE2A5E8-4C5A-48B9-997B-E1455C0355C6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -197,10 +209,18 @@ Global
 		{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BEE1C184-C9A4-410B-8DFC-FB74D5C93AEB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{619F37C8-7844-45A4-AA7E-FD5E5DAFBE0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C1B2721-13DA-4B62-B046-C626605ECCE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C1B2721-13DA-4B62-B046-C626605ECCE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C1B2721-13DA-4B62-B046-C626605ECCE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C1B2721-13DA-4B62-B046-C626605ECCE6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA161CA0-CD65-4E6E-B644-51C8D1E542DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA161CA0-CD65-4E6E-B644-51C8D1E542DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA161CA0-CD65-4E6E-B644-51C8D1E542DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA161CA0-CD65-4E6E-B644-51C8D1E542DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AE2A5E8-4C5A-48B9-997B-E1455C0355C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AE2A5E8-4C5A-48B9-997B-E1455C0355C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AE2A5E8-4C5A-48B9-997B-E1455C0355C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AE2A5E8-4C5A-48B9-997B-E1455C0355C6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,7 +4,7 @@ using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Configuration.Hid.Controller;
 using Ryujinx.Common.Configuration.Hid.Keyboard;
 using Ryujinx.Common.Utilities;
-using Ryujinx.Configuration;
+using Ryujinx.Ui.Common.Configuration;
 using Ryujinx.Input;
 using Ryujinx.Input.GTK3;
 using Ryujinx.Ui.Widgets;
@@ -38,6 +38,8 @@ namespace Ryujinx.Ui.Windows
         [GUI] Adjustment   _controllerWeakRumble;
         [GUI] Adjustment   _controllerDeadzoneLeft;
         [GUI] Adjustment   _controllerDeadzoneRight;
+        [GUI] Adjustment   _controllerRangeLeft;
+        [GUI] Adjustment   _controllerRangeRight;
         [GUI] Adjustment   _controllerTriggerThreshold;
         [GUI] Adjustment   _slotNumber;
         [GUI] Adjustment   _altSlotNumber;
@@ -59,9 +61,11 @@ namespace Ryujinx.Ui.Windows
         [GUI] Grid         _leftStickKeyboard;
         [GUI] Grid         _leftStickController;
         [GUI] Box          _deadZoneLeftBox;
+        [GUI] Box          _rangeLeftBox;
         [GUI] Grid         _rightStickKeyboard;
         [GUI] Grid         _rightStickController;
         [GUI] Box          _deadZoneRightBox;
+        [GUI] Box          _rangeRightBox;
         [GUI] Grid         _leftSideTriggerBox;
         [GUI] Grid         _rightSideTriggerBox;
         [GUI] Box          _triggerThresholdBox;
@@ -69,6 +73,7 @@ namespace Ryujinx.Ui.Windows
         [GUI] ToggleButton _lStick;
         [GUI] CheckButton  _invertLStickX;
         [GUI] CheckButton  _invertLStickY;
+        [GUI] CheckButton  _rotateL90CW;
         [GUI] ToggleButton _lStickUp;
         [GUI] ToggleButton _lStickDown;
         [GUI] ToggleButton _lStickLeft;
@@ -84,6 +89,7 @@ namespace Ryujinx.Ui.Windows
         [GUI] ToggleButton _rStick;
         [GUI] CheckButton  _invertRStickX;
         [GUI] CheckButton  _invertRStickY;
+        [GUI] CheckButton  _rotateR90CW;
         [GUI] ToggleButton _rStickUp;
         [GUI] ToggleButton _rStickDown;
         [GUI] ToggleButton _rStickLeft;
@@ -121,7 +127,7 @@ namespace Ryujinx.Ui.Windows
             // NOTE: To get input in this window, we need to bind a custom keyboard driver instead of using the InputManager one as the main window isn't focused...
             _gtk3KeyboardDriver = new GTK3KeyboardDriver(this);
 
-            Icon = new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.Resources.Logo_Ryujinx.png");
+            Icon = new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.Ui.Common.Resources.Logo_Ryujinx.png");
 
             builder.Autoconnect(this);
 
@@ -316,6 +322,8 @@ namespace Ryujinx.Ui.Windows
                 _rightStickController.Hide();
                 _deadZoneLeftBox.Hide();
                 _deadZoneRightBox.Hide();
+                _rangeLeftBox.Hide();
+                _rangeRightBox.Hide();
                 _triggerThresholdBox.Hide();
                 _motionBox.Hide();
                 _rumbleBox.Hide();
@@ -373,10 +381,10 @@ namespace Ryujinx.Ui.Windows
 
             _controllerImage.Pixbuf = _controllerType.ActiveId switch
             {
-                "ProController" => new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.Resources.Controller_ProCon.svg", 400, 400),
-                "JoyconLeft"    => new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.Resources.Controller_JoyConLeft.svg", 400, 500),
-                "JoyconRight"   => new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.Resources.Controller_JoyConRight.svg", 400, 500),
-                _               => new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.Resources.Controller_JoyConPair.svg", 400, 500),
+                "ProController" => new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.Ui.Common.Resources.Controller_ProCon.svg", 400, 400),
+                "JoyconLeft"    => new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.Ui.Common.Resources.Controller_JoyConLeft.svg", 400, 500),
+                "JoyconRight"   => new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.Ui.Common.Resources.Controller_JoyConRight.svg", 400, 500),
+                _               => new Gdk.Pixbuf(Assembly.GetAssembly(typeof(ConfigurationState)), "Ryujinx.Ui.Common.Resources.Controller_JoyConPair.svg", 400, 500),
             };
         }
 
@@ -416,6 +424,8 @@ namespace Ryujinx.Ui.Windows
             _controllerWeakRumble.Value       = 1;
             _controllerDeadzoneLeft.Value     = 0;
             _controllerDeadzoneRight.Value    = 0;
+            _controllerRangeLeft.Value        = 1;
+            _controllerRangeRight.Value       = 1;
             _controllerTriggerThreshold.Value = 0;
             _mirrorInput.Active               = false;
             _enableMotion.Active              = false;
@@ -482,6 +492,7 @@ namespace Ryujinx.Ui.Windows
                     _lStick.Label                     = controllerConfig.LeftJoyconStick.Joystick.ToString();
                     _invertLStickX.Active             = controllerConfig.LeftJoyconStick.InvertStickX;
                     _invertLStickY.Active             = controllerConfig.LeftJoyconStick.InvertStickY;
+                    _rotateL90CW.Active               = controllerConfig.LeftJoyconStick.Rotate90CW;
                     _lStickButton.Label               = controllerConfig.LeftJoyconStick.StickButton.ToString();
                     _dpadUp.Label                     = controllerConfig.LeftJoycon.DpadUp.ToString();
                     _dpadDown.Label                   = controllerConfig.LeftJoycon.DpadDown.ToString();
@@ -495,6 +506,7 @@ namespace Ryujinx.Ui.Windows
                     _rStick.Label                     = controllerConfig.RightJoyconStick.Joystick.ToString();
                     _invertRStickX.Active             = controllerConfig.RightJoyconStick.InvertStickX;
                     _invertRStickY.Active             = controllerConfig.RightJoyconStick.InvertStickY;
+                    _rotateR90CW.Active               = controllerConfig.RightJoyconStick.Rotate90CW;
                     _rStickButton.Label               = controllerConfig.RightJoyconStick.StickButton.ToString();
                     _a.Label                          = controllerConfig.RightJoycon.ButtonA.ToString();
                     _b.Label                          = controllerConfig.RightJoycon.ButtonB.ToString();
@@ -510,11 +522,22 @@ namespace Ryujinx.Ui.Windows
                     _enableRumble.Active              = controllerConfig.Rumble.EnableRumble;
                     _controllerDeadzoneLeft.Value     = controllerConfig.DeadzoneLeft;
                     _controllerDeadzoneRight.Value    = controllerConfig.DeadzoneRight;
+                    _controllerRangeLeft.Value        = controllerConfig.RangeLeft;
+                    _controllerRangeRight.Value       = controllerConfig.RangeRight;
                     _controllerTriggerThreshold.Value = controllerConfig.TriggerThreshold;
                     _sensitivity.Value                = controllerConfig.Motion.Sensitivity;
                     _gyroDeadzone.Value               = controllerConfig.Motion.GyroDeadzone;
                     _enableMotion.Active              = controllerConfig.Motion.EnableMotion;
                     _enableCemuHook.Active            = controllerConfig.Motion.MotionBackend == MotionInputBackendType.CemuHook;
+
+                    // If both stick ranges are 0 (usually indicative of an outdated profile load) then both sticks will be set to 1.0.
+                    if (_controllerRangeLeft.Value <= 0.0 && _controllerRangeRight.Value <= 0.0)
+                    {
+                        _controllerRangeLeft.Value  = 1.0;
+                        _controllerRangeRight.Value = 1.0;
+                        
+                        Logger.Info?.Print(LogClass.Application, $"{config.PlayerIndex} stick range reset. Save the profile now to update your configuration");
+                    }
 
                     if (controllerConfig.Motion is CemuHookMotionConfigController cemuHookMotionConfig)
                     {
@@ -678,6 +701,8 @@ namespace Ryujinx.Ui.Windows
                     PlayerIndex      = _playerIndex,
                     DeadzoneLeft     = (float)_controllerDeadzoneLeft.Value,
                     DeadzoneRight    = (float)_controllerDeadzoneRight.Value,
+                    RangeLeft        = (float)_controllerRangeLeft.Value,
+                    RangeRight       = (float)_controllerRangeRight.Value,
                     TriggerThreshold = (float)_controllerTriggerThreshold.Value,
                     LeftJoycon       = new LeftJoyconCommonConfig<ConfigGamepadInputId>
                     {
@@ -697,6 +722,7 @@ namespace Ryujinx.Ui.Windows
                         Joystick     = lStick,
                         InvertStickY = _invertLStickY.Active,
                         StickButton  = lStickButton,
+                        Rotate90CW   = _rotateL90CW.Active,
                     },
                     RightJoycon      = new RightJoyconCommonConfig<ConfigGamepadInputId>
                     {
@@ -716,6 +742,7 @@ namespace Ryujinx.Ui.Windows
                         Joystick     = rStick,
                         InvertStickY = _invertRStickY.Active,
                         StickButton  = rStickButton,
+                        Rotate90CW   = _rotateR90CW.Active,
                     },
                     Motion           = motionConfig,
                     Rumble           = new RumbleConfigController
@@ -1013,6 +1040,8 @@ namespace Ryujinx.Ui.Windows
                         ControllerType   = ControllerType.JoyconPair,
                         DeadzoneLeft     = 0.1f,
                         DeadzoneRight    = 0.1f,
+                        RangeLeft        = 1.0f,
+                        RangeRight       = 1.0f,
                         TriggerThreshold = 0.5f,
                         LeftJoycon = new LeftJoyconCommonConfig<ConfigGamepadInputId>
                         {
@@ -1033,6 +1062,7 @@ namespace Ryujinx.Ui.Windows
                             StickButton  = ConfigGamepadInputId.LeftStick,
                             InvertStickX = false,
                             InvertStickY = false,
+                            Rotate90CW   = false,
                         },
 
                         RightJoycon = new RightJoyconCommonConfig<ConfigGamepadInputId>
@@ -1054,6 +1084,7 @@ namespace Ryujinx.Ui.Windows
                             StickButton  = ConfigGamepadInputId.RightStick,
                             InvertStickX = false,
                             InvertStickY = false,
+                            Rotate90CW   = false,
                         },
 
                         Motion = new StandardMotionConfigController
