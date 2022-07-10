@@ -11,6 +11,7 @@ using LibHac.FsSystem;
 using LibHac.Ncm;
 using Ryujinx.Ava.Common;
 using Ryujinx.Ava.Common.Locale;
+using Ryujinx.Ava.Input;
 using Ryujinx.Ava.Ui.Controls;
 using Ryujinx.Ava.Ui.Windows;
 using Ryujinx.Common;
@@ -35,7 +36,7 @@ using ShaderCacheLoadingState = Ryujinx.Graphics.Gpu.Shader.ShaderCacheState;
 
 namespace Ryujinx.Ava.Ui.ViewModels
 {
-    public class MainWindowViewModel : BaseModel
+    internal class MainWindowViewModel : BaseModel
     {
         private readonly MainWindow _owner;
         private ObservableCollection<ApplicationData> _applications;
@@ -66,6 +67,8 @@ namespace Ryujinx.Ava.Ui.ViewModels
         private bool _isPaused;
         private bool _showContent = true;
         private bool _isLoadingIndeterminate = true;
+        private bool _showAll;
+        private string _lastScannedAmiiboId;
         private ReadOnlyObservableCollection<ApplicationData> _appsObservableList;
 
         public string TitleName { get; internal set; }
@@ -86,9 +89,7 @@ namespace Ryujinx.Ava.Ui.ViewModels
 
             if (Program.PreviewerDetached)
             {
-                ShowUiKey = KeyGesture.Parse(ConfigurationState.Instance.Hid.Hotkeys.Value.ShowUi.ToString());
-                ScreenshotKey = KeyGesture.Parse(ConfigurationState.Instance.Hid.Hotkeys.Value.Screenshot.ToString());
-                PauseKey = KeyGesture.Parse(ConfigurationState.Instance.Hid.Hotkeys.Value.Pause.ToString());
+                LoadConfigurableHotKeys();
 
                 Volume = ConfigurationState.Instance.System.AudioVolume;
             }
@@ -696,15 +697,28 @@ namespace Ryujinx.Ava.Ui.ViewModels
             }
         }
 
-        public void OpenAmiiboWindow()
+        public async void OpenAmiiboWindow()
         {
             if (!_isAmiiboRequested)
             {
                 return;
             }
+            
+            if (_owner.AppHost.Device.System.SearchingForAmiibo(out int deviceId))
+            {
+                string titleId = _owner.AppHost.Device.Application.TitleIdText.ToUpper();
+                AmiiboWindow window = new(_showAll, _lastScannedAmiiboId, titleId);
 
-            // TODO : Implement Amiibo window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+                await window.ShowDialog(_owner);
+
+                if (window.IsScanned)
+                {
+                    _showAll = window.ViewModel.ShowAllAmiibo;
+                    _lastScannedAmiiboId = window.ScannedAmiibo.GetId();
+
+                    _owner.AppHost.Device.System.ScanAmiibo(deviceId, _lastScannedAmiiboId, window.ViewModel.UseRandomUuid);
+                }
+            }
         }
 
         public void HandleShaderProgress(Switch emulationContext)
@@ -836,6 +850,22 @@ namespace Ryujinx.Ava.Ui.ViewModels
             }
         }
 
+        public void LoadConfigurableHotKeys()
+        {
+            if (AvaloniaMappingHelper.TryGetAvaKey((Ryujinx.Input.Key)ConfigurationState.Instance.Hid.Hotkeys.Value.ShowUi, out var showUiKey))
+            {
+                ShowUiKey = new KeyGesture(showUiKey, KeyModifiers.None);
+            }
+            if (AvaloniaMappingHelper.TryGetAvaKey((Ryujinx.Input.Key)ConfigurationState.Instance.Hid.Hotkeys.Value.Screenshot, out var screenshotKey))
+            {
+                ScreenshotKey = new KeyGesture(screenshotKey, KeyModifiers.None);
+            }
+            if (AvaloniaMappingHelper.TryGetAvaKey((Ryujinx.Input.Key)ConfigurationState.Instance.Hid.Hotkeys.Value.Pause, out var pauseKey))
+            {
+                PauseKey = new KeyGesture(pauseKey, KeyModifiers.None);
+            }
+        }
+
         public void TakeScreenshot()
         {
             _owner.AppHost.ScreenshotRequested = true;
@@ -930,16 +960,19 @@ namespace Ryujinx.Ava.Ui.ViewModels
             }
         }
 
-        public void OpenSettings()
+        public async void OpenSettings()
         {
-            // TODO : Implement Settings window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+            _owner.SettingsWindow = new(_owner.VirtualFileSystem, _owner.ContentManager);
+
+            await _owner.SettingsWindow.ShowDialog(_owner);
+            LoadConfigurableHotKeys();
         }
 
-        public void ManageProfiles()
+        public async void ManageProfiles()
         {
-            // TODO : Implement Profiles window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+            UserProfileWindow window = new(_owner.AccountManager, _owner.ContentManager, _owner.VirtualFileSystem);
+
+            await window.ShowDialog(_owner);
         }
 
         public async void OpenAboutWindow()
@@ -951,6 +984,7 @@ namespace Ryujinx.Ava.Ui.ViewModels
 
         public void ChangeLanguage(object obj)
         {
+            LocaleManager.Instance.LoadDefaultLanguage();
             LocaleManager.Instance.LoadLanguage((string)obj);
         }
 
@@ -1209,33 +1243,60 @@ namespace Ryujinx.Ava.Ui.ViewModels
             }
         }
 
-        public void OpenTitleUpdateManager()
+        public async void OpenTitleUpdateManager()
         {
-            // TODO : Implement Update window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+            var selection = SelectedApplication;
+
+            if (selection != null)
+            {
+                TitleUpdateWindow titleUpdateManager =
+                    new(_owner.VirtualFileSystem, selection.TitleId, selection.TitleName);
+
+                await titleUpdateManager.ShowDialog(_owner);
+            }
         }
 
-        public void OpenDlcManager()
+        public async void OpenDlcManager()
         {
-            // TODO : Implement Dlc window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+            var selection = SelectedApplication;
+
+            if (selection != null)
+            {
+                DlcManagerWindow dlcManager = new(_owner.VirtualFileSystem, ulong.Parse(selection.TitleId, NumberStyles.HexNumber), selection.TitleName);
+
+                await dlcManager.ShowDialog(_owner);
+            }
         }
 
-        public void OpenCheatManager()
+        public async void OpenCheatManager()
         {
-            // TODO : Implement cheat window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+            var selection = SelectedApplication;
+
+            if (selection != null)
+            {
+                CheatWindow cheatManager = new(_owner.VirtualFileSystem, selection.TitleId, selection.TitleName);
+
+                await cheatManager.ShowDialog(_owner);
+            }
         }
 
-        public void OpenCheatManagerForCurrentApp()
+        public async void OpenCheatManagerForCurrentApp()
         {
             if (!IsGameRunning)
             {
                 return;
             }
 
-            // TODO : Implement cheat window
-            ContentDialogHelper.ShowNotAvailableMessage(_owner);
+            var application = _owner.AppHost.Device.Application;
+
+            if (application != null)
+            {
+                CheatWindow cheatManager = new(_owner.VirtualFileSystem, application.TitleIdText, application.TitleName);
+
+                await cheatManager.ShowDialog(_owner);
+
+                _owner.AppHost.Device.EnableCheats();
+            }
         }
 
         public void OpenDeviceSaveDirectory()
@@ -1350,7 +1411,13 @@ namespace Ryujinx.Ava.Ui.ViewModels
 
                 dialogMessage += LocaleManager.Instance["DialogFirmwareInstallerFirmwareInstallConfirmMessage"];
 
-                UserResult result = await ContentDialogHelper.CreateConfirmationDialog(_owner, dialogTitle, dialogMessage, LocaleManager.Instance["InputDialogYes"], LocaleManager.Instance["InputDialogNo"], LocaleManager.Instance["RyujinxConfirm"]);
+                UserResult result = await ContentDialogHelper.CreateConfirmationDialog(
+                    _owner,
+                    dialogTitle,
+                    dialogMessage,
+                    LocaleManager.Instance["InputDialogYes"],
+                    LocaleManager.Instance["InputDialogNo"],
+                    LocaleManager.Instance["RyujinxConfirm"]);
 
                 UpdateWaitWindow waitingDialog = ContentDialogHelper.CreateWaitingDialog(dialogTitle, LocaleManager.Instance["DialogFirmwareInstallerFirmwareInstallWaitMessage"]);
 
